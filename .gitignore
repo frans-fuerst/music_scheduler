@@ -1,0 +1,7 @@
+.pyc
+~*
+*~
+youtube-dl
+.cache
+__pycache__
+music-player
