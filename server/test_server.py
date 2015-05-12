@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import server
 
@@ -11,6 +12,7 @@ def test_player():
     p = server.player()
     p.set_scheduler(scheduler_stub)
     p.play()
+    
 
 def test_scheduler():
     class player_stub:
