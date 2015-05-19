@@ -13,6 +13,7 @@ import random
 
 import musicplayer
 
+
 ''' design guidelines
     - base components have only non-blocking methods
     - base components are meant to not having to know
@@ -35,10 +36,16 @@ class player:
         self._playing = False
         self._stop = False
         self._play_thread = None
-    
+        self._scheduler = None
+        self._publication_handler = None
+        
     def set_scheduler(self, scheduler):
         assert hasattr(scheduler, '_on_next')
         self._scheduler = scheduler
+
+    def set_publication_handler(self, handler):
+        assert hasattr(handler, '_on_publication')
+        self._publication_handler = handler
 
     def play(self):
         if self._playing:
@@ -50,7 +57,7 @@ class player:
     def stop(self):
         self._stop = True
         try:
-            self._play_thread.join()        
+            self._play_thread.join()
         except AttributeError:
             pass
 
@@ -68,8 +75,13 @@ class player:
         self._stop = False
         while not self._stop:
             self._fetch()
+            if self._publication_handler:
+                self._publication_handler._on_publication({
+                    'type': 'now_playing',
+                    'track': 'self._current_file'})
+                
             print('play %s (next: %s)' % (self._current_file, self._next_file))
-            time.sleep(2)
+            time.sleep(5)
 
         self._playing = False
 
@@ -145,46 +157,70 @@ class scheduler:
                     print(_parent)
                     
 def main():
-    p = player()
-    s = scheduler()
-    a = acquirer()
-    
-    p.set_scheduler(s)
-    s.set_player(p)
-    
-    s.add_path('../mucke')
-    
-   
-    context = zmq.Context()
-    socket = context.socket(zmq.REP)
-    socket.bind('tcp://127.0.0.1:9876')
-    
-    while True:
-        print('listening..')
-        request = socket.recv_json()
-        print(request)
-        if 'type' not in request:
-            socket.send_json({'type': 'error'})
+    class server:
+        def run(self):
+            p = player()
+            s = scheduler()
+            a = acquirer()
             
-        elif request['type'] == 'play':
-            p.play()
-            socket.send_json({'type': 'ok'})
+            p.set_scheduler(s)
+            p.set_publication_handler(self)
+            s.set_player(p)
             
-        elif request['type'] == 'stop':
-            p.stop()
-            socket.send_json({'type': 'ok'})
+            s.add_path('../mucke')
             
-        elif request['type'] == 'quit':
-            socket.send_json({'type': 'ok'})
-            break
+           
+            context = zmq.Context()
+            req_socket = context.socket(zmq.REP)
+            req_socket.bind('tcp://127.0.0.1:9876')
+            self._pub_socket = context.socket(zmq.PUB)
+            self._pub_socket.bind('tcp://127.0.0.1:9875')
+            
+            t1 = time.time()
+            while True:
+                _td = time.time() - t1 
+                print('listening.. (%.2f)' % _td)
+                request = req_socket.recv_json()
+                t1 = time.time()
+                print(request)
+                reply = {'type': 'error'}
+                try:
+                    if 'type' not in request:
+                        reply = {'type': 'error'}
+                        
+                    elif request['type'] == 'play':
+                        p.play()
+                        reply = {'type': 'ok'}
+                        
+                    elif request['type'] == 'stop':
+                        p.stop()
+                        reply = {'type': 'ok'}
+                        
+                    elif request['type'] == 'quit':
+                        reply = {'type': 'ok'}
+                        break
+                    
+                    else:
+                        req_socket.send_json({
+                            'type': 'error', 
+                            'what': 'command "%s" '
+                            'not known' % request['type']})
+                except Exception as e:
+                    reply = {'type': 'error', 'what': str(e)}
         
-        else:
-            socket.send_json({'type': 'error'})
-        print('ready')
-
-    socket.close()
-    context.close()
-    
+                req_socket.send_json(reply)
+                print('ready')
+        
+            req_socket.close()
+            context.close()
+            
+        def _on_publication(self, msg):
+            # todo: queue and run in same thread
+            self._pub_socket.send_json(msg)
+            if msg['type'] == 'now_playing':
+                self._cached_current_track_name = msg['track']
+        
+    server().run()
 
 if __name__ == '__main__':
     main()
