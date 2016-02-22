@@ -15,7 +15,10 @@ except:
           % ".".join(str(x) for x in sys.version_info))
     sys.exit(-1)
 
-class client:
+class client: # (QtCore.QObject):
+
+    #QtGui.QWidget
+    #notification = QtCore.pyqtSignal(dict)
 
     def __init__(self):
         self._context = zmq.Context()
@@ -23,9 +26,14 @@ class client:
         self._req_socket.connect('tcp://127.0.0.1:9876')
         self._req_poller = zmq.Poller()
         self._req_poller.register(self._req_socket, zmq.POLLIN)
+        self._notification_handler = None
         self._running = True
         self._sub_thread = threading.Thread(target=self._subscriber_thread_fn)
         self._sub_thread.start()
+
+    def set_notification_handler(self, handler):
+        assert hasattr(handler, '_on_notification')
+        self._notification_handler = handler
 
     def request(self, msg):
         self._req_socket.send_json(msg)
@@ -61,8 +69,12 @@ class client:
                 continue
             _msg = _sub_socket.recv_json()
             print('published "%s"' % _msg)
+            if self._notification_handler:
+                self._notification_handler._on_notification(_msg)
+            
         _sub_socket.close()
         print("disconnect from broadcasts")
+
 
 class yousched_ui(QtGui.QMainWindow):
 
@@ -70,9 +82,22 @@ class yousched_ui(QtGui.QMainWindow):
         QtGui.QMainWindow.__init__(self)
         uic.loadUi(os.path.join(os.path.dirname(__file__), 'yousched.ui'), self)
         self._client = client()
+        self._client.set_notification_handler(self)
         self.pb_play.clicked.connect(self.on_pb_play_Clicked)
         self.pb_stop.clicked.connect(self.on_pb_stop_Clicked)
+        self.pb_add.clicked.connect(self.on_pb_add_Clicked)
 
+    def _on_notification(self, msg):
+        QtCore.QMetaObject.invokeMethod(
+            self, "_on_server_notification",
+            QtCore.Qt.QueuedConnection,
+            QtCore.Q_ARG(dict, msg))
+        
+    @QtCore.pyqtSlot(dict)
+    def _on_server_notification(self, msg):
+        print(msg)
+        self.lbl_current_track.setText(msg['track'])
+        
     def on_pb_play_Clicked(self):
         print('play')
         self._client.request({'type': 'play'})
@@ -80,6 +105,12 @@ class yousched_ui(QtGui.QMainWindow):
     def on_pb_stop_Clicked(self):
         print('stop')
         self._client.request({'type': 'stop'})
+
+    def on_pb_add_Clicked(self):
+        print('add %s' % self.le_add.text())
+        self._client.request(
+            {'type': 'add', 
+             'url':  str(self.le_add.text())})
 
     def closeEvent(self, event):
         self._client.shutdown()
