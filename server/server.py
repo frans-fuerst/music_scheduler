@@ -5,14 +5,14 @@ import sys
 import os
 import fnmatch
 import zmq
-import logging as log
 import threading
 import time
 import re
 import random
 import argparse
+import pygame
 
-import musicplayer
+import logging as log
 
 
 ''' design guidelines
@@ -39,6 +39,7 @@ class player:
         self._play_thread = None
         self._scheduler = None
         self._publication_handler = None
+        self._skip = False
 
     def set_scheduler(self, scheduler_inst):
         assert hasattr(scheduler, '_on_next')
@@ -65,13 +66,23 @@ class player:
     def _fetch(self):
         self._current_file = self._next_file
         self._next_file = None
+        # todo: must know if there's nothing to play
         while self._current_file is None:
             self._current_file = self._next_file
             self._next_file = self._scheduler._on_next()
         while self._next_file is None:
             self._next_file = self._scheduler._on_next()
 
+    def skip(self):
+        self._skip = True
+
+    def current_track(self):
+        return self._current_file
+
     def _player_fn(self):
+        pygame.init()
+        pygame.mixer.init()
+
         self._playing = True
         self._stop = False
         while not self._stop:
@@ -82,7 +93,16 @@ class player:
                     'track': self._current_file})
 
             log.info('play %s (next: %s)' % (self._current_file, self._next_file))
-            time.sleep(5)
+            try:
+                pygame.mixer.music.load(self._current_file)
+            except pygame.error as ex:
+                log.error('pygame.mixer.music.load threw an exception: "%s"', ex)
+                time.sleep(3)
+                continue
+            self._skip = False
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy() and not self._skip:
+                pygame.time.Clock().tick(10)
 
         self._playing = False
 
@@ -114,7 +134,7 @@ class scheduler:
         if len(self._folders) == 0:
             time.sleep(1)
             return None  # slow down endless loops
-        _folder = random.choice(self._folders.keys())
+        _folder = random.choice(list(self._folders.keys()))
         _file = random.choice(self._folders[_folder])
         return os.path.join(_folder, _file)
 
@@ -130,12 +150,17 @@ class scheduler:
         self._acquirer = acquirer
 
     def add_path(self, path='.'):
-        ''' this '''
+        log.info('add "%s"', path)
         self._sources.append(path)
         self._crawl_path(path)
 
     def _is_music(self, filename):
-        return filename.lower().endswith('.mp3')
+        return os.path.splitext(filename.lower())[1] in (
+        #    '.mp3',
+            '.ogg',
+        #    '.opus',
+        #    '.m4a',
+        )
 
     def _has_music(self, files):
         for f in files:
@@ -147,15 +172,19 @@ class scheduler:
         return [f for f in files if self._is_music(f)]
 
     def _crawl_path(self, path=None):
-        log.info('add path "%s"' % os.path.abspath(path))
-        for _parent, _folders, _files in os.walk(path):
+        _path = os.path.expanduser(path)
+
+        log.info('crawl path "%s"' % os.path.abspath(_path))
+        for _parent, _folders, _files in os.walk(_path):
             # if p == '.git': continue
             #if re.search('.*/.git/.*', a) is not None: continue
             #log.info(a, p, f)
-            if self._has_music(_files):
-                if not _parent in self._folders:
-                    self._folders[_parent] = self._get_music(_files)
-                    log.debug(_parent)
+            if not self._has_music(_files):
+                continue
+            if _parent in self._folders:
+                continue
+            self._folders[_parent] = self._get_music(_files)
+            log.debug(_parent)
 
 def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
@@ -173,6 +202,7 @@ def main():
 
     class server:
         def run(self):
+            # turn into with x(player(), scheduler(), aquirer()) as (p, s, a):
             p = player()
             s = scheduler()
             a = acquirer()
@@ -181,41 +211,56 @@ def main():
             p.set_publication_handler(self)
             s.set_player(p)
 
-            s.add_path('../mucke')
-
+            s.add_path('~/Music/pp')
 
             context = zmq.Context()
             # pylint: disable=no-member
             req_socket = context.socket(zmq.REP)
             req_socket.bind('tcp://127.0.0.1:9876')
             self._pub_socket = context.socket(zmq.PUB)
-            self._pub_socket.bind('tcp://127.0.0.1:9875')
+            self._pub_socket.bind('tcp://127.0.0.1:9875')  # todo: make random
 
             t1 = time.time()
             while True:
                 _td = time.time() - t1
-                log.info('listening.. (%.2f)' % _td)
+                log.info('listening.. (%.2fs)' % _td)
                 request = req_socket.recv_json()
                 t1 = time.time()
-                log.info(request)
+                log.debug(request)
                 reply = {'type': 'error'}
                 try:
                     if 'type' not in request:
+                        log.error('got request without "type"')
                         reply = {'type': 'error'}
 
+                    elif request['type'] == 'hello':
+                        log.info('got "play" request')
+                        reply = {'type': 'ok',
+                                 'notifications': 'tcp://127.0.0.1:9875',
+                                 'current_track': p.current_track()}
+
                     elif request['type'] == 'play':
+                        log.info('got "play" request')
                         p.play()
                         reply = {'type': 'ok'}
 
                     elif request['type'] == 'stop':
+                        log.info('got "stop" request')
                         p.stop()
                         reply = {'type': 'ok'}
 
+                    elif request['type'] == 'skip':
+                        log.info('got "skip" request')
+                        p.skip()
+                        reply = {'type': 'ok'}
+
                     elif request['type'] == 'quit':
+                        log.info('got "quit" request')
                         reply = {'type': 'ok'}
                         break
 
                     elif request['type'] == 'add':
+                        log.info('got "add" request')
                         reply = {'type': 'ok'}
                         break
 

@@ -1,13 +1,19 @@
+rrplayer - respectful remote player
+===================================
+
 desired features
 ----------------
 
-- [ ] server provides fuzzy search among available files
-- [ ] clients can find and control multiple servers
-- [ ] clients can see what's currently being played 
-- [ ] themes can be defined with individual rules
 - [ ] DJ/Party mode: music never stops
+- [ ] themes can be defined with individual rules
+- [ ] clients can see what's currently being played
 - [ ] music can be voted
-- [ ] 
+- [ ] play lists are being recorded
+- [ ] the scheduler is 'listener aware' - respects present listeners
+- [ ] server provides fuzzy search among available files
+- [ ] listeners can upload files/urls which are being downloaded
+- [ ] clients can find and control multiple servers
+
 
 technical approaches
 --------------------
@@ -15,8 +21,10 @@ technical approaches
 . how is music being played?
   - cross-fading
   - support mixing/filtering
+  - supports mp3 m4a ogg opus flac
   - supports streaming
 - ? musicplayer?
+- ? pygame ?
 
 . how is online content being accessed?
 
@@ -29,3 +37,20 @@ interesting links
 * http://albertz.github.io/music-player/
   https://pypi.python.org/pypi/musicplayer
 
+
+API
+---
+
+client -> server
+++++++++++++++++
+
+* hello, I'm here
+* add folder
+* select rule
+
+
+server -> clients (publish)
++++++++++++++++++++++++++++
+
+* current song
+* errors
