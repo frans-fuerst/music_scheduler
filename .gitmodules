@@ -1,0 +1,12 @@
+[submodule "client/submodule/qt-android-cmake"]
+	path = client/submodule/qt-android-cmake
+	url = https://github.com/LaurentGomila/qt-android-cmake.git
+[submodule "client/submodule/pal"]
+	path = client/submodule/pal
+	url = https://github.com/frans-fuerst/pal.git
+[submodule "client/submodule/cppzmq"]
+	path = client/submodule/cppzmq
+	url = https://github.com/zeromq/cppzmq.git
+[submodule "client/submodule/libzmq"]
+	path = client/submodule/libzmq
+	url = https://github.com/zeromq/libzmq.git

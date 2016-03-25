@@ -216,9 +216,9 @@ def main():
             context = zmq.Context()
             # pylint: disable=no-member
             req_socket = context.socket(zmq.REP)
-            req_socket.bind('tcp://127.0.0.1:9876')
+            req_socket.bind('tcp://*:9876')
             self._pub_socket = context.socket(zmq.PUB)
-            self._pub_socket.bind('tcp://127.0.0.1:9875')  # todo: make random
+            self._pub_socket.bind('tcp://*:9875')  # todo: make random
 
             t1 = time.time()
             while True:
@@ -234,7 +234,7 @@ def main():
                         reply = {'type': 'error'}
 
                     elif request['type'] == 'hello':
-                        log.info('got "play" request')
+                        log.info('got "hello" request')
                         reply = {'type': 'ok',
                                  'notifications': 'tcp://127.0.0.1:9875',
                                  'current_track': p.current_track()}
@@ -254,13 +254,13 @@ def main():
                         p.skip()
                         reply = {'type': 'ok'}
 
-                    elif request['type'] == 'quit':
-                        log.info('got "quit" request')
+                    elif request['type'] == 'add':
+                        log.info('got "add" request')
                         reply = {'type': 'ok'}
                         break
 
-                    elif request['type'] == 'add':
-                        log.info('got "add" request')
+                    elif request['type'] == 'quit':
+                        log.info('got "quit" request')
                         reply = {'type': 'ok'}
                         break
 
