@@ -90,7 +90,7 @@ class player:
             if self._publication_handler:
                 self._publication_handler._on_publication({
                     'type': 'now_playing',
-                    'track': self._current_file})
+                    'current_track': self._current_file})
 
             log.info('play %s (next: %s)' % (self._current_file, self._next_file))
             try:
@@ -102,7 +102,10 @@ class player:
             self._skip = False
             pygame.mixer.music.play()
             while pygame.mixer.music.get_busy() and not self._skip:
-                pygame.time.Clock().tick(10)
+                time.sleep(1)
+                #self._publication_handler._on_publication({
+                #    'type': 'tick',
+                #    'time': time.time()})
 
         self._playing = False
 
@@ -156,7 +159,7 @@ class scheduler:
 
     def _is_music(self, filename):
         return os.path.splitext(filename.lower())[1] in (
-        #    '.mp3',
+            '.mp3',
             '.ogg',
         #    '.opus',
         #    '.m4a',
@@ -234,9 +237,9 @@ def main():
                         reply = {'type': 'error'}
 
                     elif request['type'] == 'hello':
-                        log.info('got "hello" request')
+                        log.info('got "hello" request: "%s"', request)
                         reply = {'type': 'ok',
-                                 'notifications': 'tcp://127.0.0.1:9875',
+                                 'notifications': '9875',
                                  'current_track': p.current_track()}
 
                     elif request['type'] == 'play':
@@ -246,7 +249,7 @@ def main():
 
                     elif request['type'] == 'stop':
                         log.info('got "stop" request')
-                        p.stop()
+                        #p.stop()
                         reply = {'type': 'ok'}
 
                     elif request['type'] == 'skip':
@@ -265,6 +268,7 @@ def main():
                         break
 
                     else:
+                        log.warning('got unknown request: "%s"', request)
                         reply = {
                             'type': 'error',
                             'what': 'command "%s" '
@@ -279,10 +283,12 @@ def main():
             context.close()
 
         def _on_publication(self, msg):
-            # todo: queue and run in same thread
+            # TODO: decouple!!
+
             self._pub_socket.send_json(msg)
+            log.info("publish: '%s'", msg)
             if msg['type'] == 'now_playing':
-                self._cached_current_track_name = msg['track']
+                self._cached_current_track_name = msg['current_track']
 
     server().run()
 

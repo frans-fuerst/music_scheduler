@@ -66,22 +66,43 @@ rrplayer_mainwindow::~rrplayer_mainwindow() {
 void rrplayer_mainwindow::log_output(
         const std::string       &a_message,
               pal::log::level_t  a_level) {
-
+    std::string l_message((pal::str::str()
+                           << "0x" << std::hex << std::this_thread::get_id()
+                           << ":  " << a_message));
 #if defined(ANDROID)
-    __android_log_print(ANDROID_LOG_INFO, "rrplayer", a_message.c_str());
+    __android_log_print(ANDROID_LOG_INFO, "rrplayer", l_message.c_str());
 #else
-    std::cout << a_message << std::endl;
+    std::cout << l_message << std::endl;
 #endif
 
     if (!m_lst_messages) {
         return;
     }
+
+    // TODO: decouple!!
+
+    m_lst_messages->addItem(QString(l_message.c_str()));
     m_lst_messages->scrollToBottom();
-    m_lst_messages->addItem(QString(a_message.c_str()));
 }
 
-void rrplayer_mainwindow::on_notification() {
+void rrplayer_mainwindow::server_message(
+        const std::string &a_msg) {
+    QMetaObject::invokeMethod(
+                this, "on_server_message", Qt::QueuedConnection,
+                Q_ARG(QString, QString::fromStdString(a_msg)));
+}
 
+void rrplayer_mainwindow::on_server_message(const QString &a_msg) {
+    auto l_values(pal::json::to_map(a_msg.toStdString()));
+
+    log_i() << "message:";
+    for (auto &p : l_values) {
+        log_i() << "   " << p.first << ": " << p.second;
+        if (p.first == "current_track") {
+            auto l_filename(pal::fs::basename(p.second));
+            m_lbl_current_track->setText(QString::fromStdString(l_filename));
+        }
+    }
 }
 
 bool rrplayer_mainwindow::event(QEvent *event) {
@@ -98,32 +119,21 @@ bool rrplayer_mainwindow::event(QEvent *event) {
 }
 
 void rrplayer_mainwindow::on_initialized() {
-    try {
-        m_client.connect("10.0.0.113");
-        return;
-    } catch (rrp::error &e) {
-        log_i() << "failure: '" << e.what() << "'";
-    }
+    std::vector<std::string> l_hostnames = {
+        "mucke", "10.0.0.113",
+        "brick", "10.0.0.103",
+        "127.0.0.1"
+    };
 
-    try {
-        m_client.connect("brick");
-        return;
-    } catch (rrp::error &e) {
-        log_i() << "failure: '" << e.what() << "'";
-    }
-
-    try {
-        m_client.connect("10.0.0.103");
-        return;
-    } catch (rrp::error &e) {
-        log_i() << "failure: '" << e.what() << "'";
-    }
-
-    try {
-        m_client.connect("127.0.0.1");
-        return;
-    } catch (rrp::error &e) {
-        log_i() << "failure: '" << e.what() << "'";
+    for (auto l_hostname : l_hostnames) {
+        try {
+            log_i() << "try connection to: '" << l_hostname << "'";
+            m_client.connect(l_hostname);
+            log_i() << "success!";
+            return;
+        } catch (rrp::error &e) {
+            log_w() << "failure: '" << e.what() << "'";
+        }
     }
 
     log_i() << "no known host reachable";
@@ -156,18 +166,35 @@ void rrplayer_mainwindow::on_pb_play_clicked() {
         m_client.request("{\"type\": \"play\"}");
     } catch (rrp::error &) {}
 }
+
 void rrplayer_mainwindow::on_pb_stop_clicked() {
     log_i() << "stop";
+    try {
+        m_client.request("{\"type\": \"stop\"}");
+    } catch (rrp::error &) {}
 }
+
 void rrplayer_mainwindow::on_pb_skip_clicked() {
     log_i() << "skip";
+    try {
+        m_client.request("{\"type\": \"skip\"}");
+    } catch (rrp::error &) {}
 }
+
 void rrplayer_mainwindow::on_pb_upvote_clicked() {
     log_i() << "upvote";
+    try {
+        m_client.request("{\"type\": \"upvote\"}");
+    } catch (rrp::error &) {}
 }
+
 void rrplayer_mainwindow::on_pb_ban_clicked() {
     log_i() << "ban";
+    try {
+        m_client.request("{\"type\": \"ban\"}");
+    } catch (rrp::error &) {}
 }
+
 void rrplayer_mainwindow::on_pb_add_clicked() {
     log_i() << "add";
 }

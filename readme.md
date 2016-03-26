@@ -54,3 +54,15 @@ server -> clients (publish)
 
 * current song
 * errors
+
+
+requirements
+------------
+python3
+
+python3-pygame
+ pip3
+ mercurial
+ pip3 -v install hg+http://bitbucket.org/pygame/pygame
+ SDL-devel
+ http://pkgs.org/search/smpeg-devel

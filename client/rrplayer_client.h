@@ -1,9 +1,13 @@
 #pragma once
 
 #include <pal/log.h>
+#include <pal/pal.h>
 #include "./errors.h"
 
 #include <zmq.hpp>
+#include <memory>
+#include <thread>
+#include <vector>
 
 class rrp_client {
 
@@ -13,7 +17,7 @@ class rrp_client {
         handler & operator=(const handler &) = delete;
       public:
         handler() = default;
-        virtual void on_notification() = 0;
+        virtual void server_message(const std::string &) = 0;
         virtual ~handler() {}
     };
 
@@ -21,8 +25,13 @@ class rrp_client {
                pal::log::logger  &logger)
         : logger(logger)
         , m_handler(handler)
-        , m_context() {
+        , m_context()
+        , m_subscriber_thread() {
 
+    }
+
+    ~rrp_client() {
+        shutdown();
     }
 
     void send_str(zmq::socket_t &socket, const std::string &msg) {
@@ -41,32 +50,47 @@ class rrp_client {
                            l_msg_request.size());
     }
 
+    static std::shared_ptr<zmq::socket_t> create_socket(
+            zmq::context_t &context,
+            int             type) {
+        std::shared_ptr<zmq::socket_t> l_result(new zmq::socket_t(context, type));
+        int l_value(0);
+        l_result->setsockopt(ZMQ_LINGER, &l_value, sizeof(l_value));
+        return l_result;
+    }
+
+    static void set_recv_timeout(
+            std::shared_ptr<zmq::socket_t> socket,
+            int                            timeout) {
+        socket->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
+    }
+
     void connect(const std::string &hostname) {
         std::string l_addr(pal::str::str("tcp://") << hostname << ":9876");
-        logger.log_i() << "connect to: '" << l_addr << "'";
-
-        auto l_socket = new zmq::socket_t(m_context, ZMQ_REQ);
-        int l_to(1000);
-        l_socket->setsockopt(ZMQ_RCVTIMEO, &l_to, sizeof(l_to));
-
+        auto l_socket(create_socket(m_context, ZMQ_REQ));
+        set_recv_timeout(l_socket, 1000);
         l_socket->connect(l_addr.c_str());
 
-        send_str(*l_socket, "{\"type\": \"hello\"}");
-        logger.log_i() << l_addr;
+        send_str(*l_socket, pal::str::str("{\"type\": \"hello\", \"name\":\"")
+                 << pal::os::user_name() << "\"}");
         auto l_reply(recv_str(*l_socket));
         logger.log_i() << l_reply;
+        m_handler.server_message(l_reply);
+
+        // todo: handle port
+        // const auto l_reply_values(pal::json::to_map(l_reply));
 
         m_req_socket = l_socket;
-        l_to = -1;
-        m_req_socket->setsockopt(ZMQ_RCVTIMEO, &l_to, sizeof(l_to));
+        set_recv_timeout(m_req_socket, -1);
 
         m_connected = true;
 
+        m_subscriber_thread = std::thread(
+                    &rrp_client::subscriber_thread_fn, this,
+                    std::ref(hostname), 9875);
+
         //        self._req_poller = zmq.Poller()
         //        self._req_poller.register(self._req_socket, zmq.POLLIN)
-        //        self._running = True
-        //        self._sub_thread = threading.Thread(target=self._subscriber_thread_fn)
-        //        self._sub_thread.start()
     }
 
     bool is_connected() {
@@ -92,24 +116,37 @@ class rrp_client {
     }
 
     void shutdown() {
-//        print('shutdown client..')
-//        self._running = False
-//        self._sub_thread.join()
+        logger.log_i() << "shutdown client..";
+        if (m_running) {
+            m_running = false;
+            m_subscriber_thread.join();
+        }
 //        self._req_socket.close()
 //        self._context.term()
-//        print('ready!')
+        logger.log_i() << "ready!";
     }
 
-    void _subscriber_thread_fn() {
+    void subscriber_thread_fn(const std::string &hostname, int port) {
 //        print("connect to broadcasts")
-//        _sub_socket = self._context.socket(zmq.SUB)
-//        _sub_socket.connect('tcp://127.0.0.1:9875')
-//        _sub_socket.setsockopt(zmq.SUBSCRIBE, b"")
+        m_running = true;
+        auto l_sub_socket(create_socket(m_context, ZMQ_SUB));
+        std::string l_addr(pal::str::str("tcp://") << hostname << ":" << port);
+        l_sub_socket->connect(l_addr.data());
+        l_sub_socket->setsockopt(ZMQ_SUBSCRIBE, "", 0);
+        set_recv_timeout(l_sub_socket, 100);
 
 //        _sub_poller = zmq.Poller()
 //        _sub_poller.register(_sub_socket, zmq.POLLIN)
 
-//        while True:
+        while (m_running) {
+            zmq::message_t l_message;
+            l_sub_socket->recv(&l_message);
+            try {
+                auto l_message_str(recv_str(*l_sub_socket));
+                logger.log_i() << "XXX";
+                m_handler.server_message(l_message_str);
+            } catch (rrp::timeout &) {}
+        }
 //            if not self._running:
 //                break
 //            if _sub_poller.poll(200) == []:
@@ -127,9 +164,11 @@ class rrp_client {
     rrp_client(const rrp_client &) = delete;
     rrp_client & operator =(const rrp_client &) = delete;
 
-    pal::log::logger &logger;
-    handler          &m_handler;
-    zmq::context_t    m_context;
-    bool              m_connected = false;
-    zmq::socket_t    *m_req_socket = nullptr;
+    pal::log::logger               &logger;
+    handler                        &m_handler;
+    zmq::context_t                  m_context;
+    bool                            m_connected = false;
+    bool                            m_running = false;
+    std::shared_ptr<zmq::socket_t>  m_req_socket = nullptr;
+    std::thread                     m_subscriber_thread;
 };
