@@ -41,7 +41,7 @@ rrplayer_mainwindow::rrplayer_mainwindow(
     // QPushButton *l_pb_add = l_ui_widget->findChild<QPushButton*>("pb_add");
 
     //m_lst_search_result->setVisible(false);
-    resize(600, height());
+    //resize(600, height());
     setWindowTitle("rrplayer");
 
     //    m_model.setLocalFolder( QDir::homePath() + QDir::separator() + "zm-local" );
@@ -75,13 +75,16 @@ void rrplayer_mainwindow::log_output(
     std::cout << l_message << std::endl;
 #endif
 
+    QMetaObject::invokeMethod(
+                this, "add_log_line", Qt::QueuedConnection,
+                Q_ARG(QString, QString::fromStdString(l_message.c_str())));
+}
+
+void rrplayer_mainwindow::add_log_line(const QString &a_msg) {
     if (!m_lst_messages) {
         return;
     }
-
-    // TODO: decouple!!
-
-    m_lst_messages->addItem(QString(l_message.c_str()));
+    m_lst_messages->addItem(QString(a_msg));
     m_lst_messages->scrollToBottom();
 }
 
@@ -120,8 +123,8 @@ bool rrplayer_mainwindow::event(QEvent *event) {
 
 void rrplayer_mainwindow::on_initialized() {
     std::vector<std::string> l_hostnames = {
-        "mucke", "10.0.0.113",
         "brick", "10.0.0.103",
+        "mucke", "10.0.0.113",
         "127.0.0.1"
     };
 

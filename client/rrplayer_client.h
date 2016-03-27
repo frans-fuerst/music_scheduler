@@ -87,7 +87,7 @@ class rrp_client {
 
         m_subscriber_thread = std::thread(
                     &rrp_client::subscriber_thread_fn, this,
-                    std::ref(hostname), 9875);
+                    hostname, 9875);
 
         //        self._req_poller = zmq.Poller()
         //        self._req_poller.register(self._req_socket, zmq.POLLIN)
@@ -139,11 +139,8 @@ class rrp_client {
 //        _sub_poller.register(_sub_socket, zmq.POLLIN)
 
         while (m_running) {
-            zmq::message_t l_message;
-            l_sub_socket->recv(&l_message);
             try {
                 auto l_message_str(recv_str(*l_sub_socket));
-                logger.log_i() << "XXX";
                 m_handler.server_message(l_message_str);
             } catch (rrp::timeout &) {}
         }

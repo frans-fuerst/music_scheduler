@@ -42,6 +42,7 @@ private:
     void server_message(const std::string &) override;
 
 private slots:
+    void add_log_line(const QString &);
     void on_server_message(const QString &);
     void on_pb_play_clicked();
     void on_pb_stop_clicked();
