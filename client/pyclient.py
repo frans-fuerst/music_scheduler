@@ -77,7 +77,7 @@ class yousched_ui(QtGui.QMainWindow):
 
     def __init__(self):
         QtGui.QMainWindow.__init__(self)
-        uic.loadUi(os.path.join(os.path.dirname(__file__), 'yousched.ui'), self)
+        uic.loadUi(os.path.join(os.path.dirname(__file__), 'rrplayer.ui'), self)
         self._client = client('127.0.0.1')
         self._client.set_notification_handler(self)
         self.pb_play.clicked.connect(self.on_pb_play_Clicked)

@@ -3,11 +3,9 @@
 
 import sys
 import os
-import fnmatch
 import zmq
 import threading
 import time
-import re
 import random
 import argparse
 import pygame
@@ -24,6 +22,8 @@ import logging as log
     - base components should be startable as separate processes
 
 '''
+class application_exit_request(Exception):
+    pass
 
 class player:
     ''' The player plays a given file on the FS (no URLs). In the
@@ -31,23 +31,25 @@ class player:
         and filtering. If it needs a next file to play it informs a scheduler
         handler.
     '''
-    def __init__(self):
+    def __init__(self, context, notification_endpoint):
         self._current_file = None
         self._next_file = None
         self._playing = False
         self._stop = False
         self._play_thread = None
         self._scheduler = None
-        self._publication_handler = None
+        #        self._publication_handler = None
+        self._notification_endpoint = notification_endpoint
         self._skip = False
+        self._context = context
 
     def set_scheduler(self, scheduler_inst):
-        assert hasattr(scheduler, '_on_next')
+        assert hasattr(scheduler, 'get_next')
         self._scheduler = scheduler_inst
 
-    def set_publication_handler(self, handler):
-        assert hasattr(handler, '_on_publication')
-        self._publication_handler = handler
+    #def set_publication_handler(self, handler):
+        #assert hasattr(handler, '_on_publication')
+        #self._publication_handler = handler
 
     def play(self):
         if self._playing:
@@ -69,9 +71,9 @@ class player:
         # todo: must know if there's nothing to play
         while self._current_file is None:
             self._current_file = self._next_file
-            self._next_file = self._scheduler._on_next()
+            self._next_file = self._scheduler.get_next()
         while self._next_file is None:
-            self._next_file = self._scheduler._on_next()
+            self._next_file = self._scheduler.get_next()
 
     def skip(self):
         self._skip = True
@@ -80,6 +82,12 @@ class player:
         return self._current_file
 
     def _player_fn(self):
+        _notification_socket = self._context.socket(zmq.PAIR)
+        _notification_socket.connect(self._notification_endpoint)
+
+        _notification_socket.send_json({
+                'type': 'hello from player'})
+
         pygame.init()
         pygame.mixer.init()
 
@@ -87,12 +95,11 @@ class player:
         self._stop = False
         while not self._stop:
             self._fetch()
-            if self._publication_handler:
-                self._publication_handler._on_publication({
-                    'type': 'now_playing',
-                    'current_track': self._current_file})
+            _notification_socket.send_json({
+                'type': 'now_playing',
+                'current_track': self._current_file})
 
-            log.info('play %s (next: %s)' % (self._current_file, self._next_file))
+            log.info('play %s (next: %s)', self._current_file, self._next_file)
             try:
                 pygame.mixer.music.load(self._current_file)
             except pygame.error as ex:
@@ -103,9 +110,9 @@ class player:
             pygame.mixer.music.play()
             while pygame.mixer.music.get_busy() and not self._skip:
                 time.sleep(1)
-                #self._publication_handler._on_publication({
-                #    'type': 'tick',
-                #    'time': time.time()})
+                _notification_socket.send_json({
+                    'type': 'tick',
+                    'time': time.time()})
 
         self._playing = False
 
@@ -116,11 +123,11 @@ class acquirer:
         handler.
     '''
     def __init__(self):
-        pass
+        self._scheduler = None
 
-    def set_scheduler(self, scheduler):
+    def set_scheduler(self, scheduler_inst):
         assert hasattr(scheduler, '_on_aquired')
-        self._scheduler = scheduler
+        self._scheduler = scheduler_inst
 
     def aquire(self, url):
         pass
@@ -132,8 +139,10 @@ class scheduler:
         self.count = 0
         self._sources = []
         self._folders = {}
+        self._player = None
+        self._acquirer = None
 
-    def _on_next(self):
+    def get_next(self):
         if len(self._folders) == 0:
             time.sleep(1)
             return None  # slow down endless loops
@@ -148,9 +157,9 @@ class scheduler:
         assert hasattr(player, 'play')
         self._player = player_inst
 
-    def set_acquirer(self, acquirer):
+    def set_acquirer(self, acquirer_inst):
         assert hasattr(acquirer, 'aquire')
-        self._acquirer = acquirer
+        self._acquirer = acquirer_inst
 
     def add_path(self, path='.'):
         log.info('add "%s"', path)
@@ -177,7 +186,7 @@ class scheduler:
     def _crawl_path(self, path=None):
         _path = os.path.expanduser(path)
 
-        log.info('crawl path "%s"' % os.path.abspath(_path))
+        log.info('crawl path "%s"', os.path.abspath(_path))
         for _parent, _folders, _files in os.walk(_path):
             # if p == '.git': continue
             #if re.search('.*/.git/.*', a) is not None: continue
@@ -204,91 +213,104 @@ def main():
     log.debug('.'.join((str(e) for e in sys.version_info)))
 
     class server:
+        def __init__(self):
+            self._t1 = time.time()
+            self._application_exit_request = False
+            self._notification_endpoint = "inproc://step2"
+            self._context = zmq.Context()
+            self._player = player(self._context, self._notification_endpoint)
+            self._scheduler = scheduler()
+            self._acquirer = acquirer()
+
+            self._player.set_scheduler(self._scheduler)
+            self._scheduler.set_player(self._player)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return
+
         def run(self):
-            # turn into with x(player(), scheduler(), aquirer()) as (p, s, a):
-            p = player()
-            s = scheduler()
-            a = acquirer()
+            self._scheduler.add_path('~/Music/pp')
 
-            p.set_scheduler(s)
-            p.set_publication_handler(self)
-            s.set_player(p)
+            _req_socket = self._context.socket(zmq.REP)
+            _req_socket.bind('tcp://*:9876')
+            _pub_socket = self._context.socket(zmq.PUB)
+            _pub_socket.bind('tcp://*:9875')  # todo: make random
 
-            s.add_path('~/Music/pp')
+            _notification_socket = self._context.socket(zmq.PAIR)
+            _notification_socket.bind(self._notification_endpoint)
 
-            context = zmq.Context()
-            # pylint: disable=no-member
-            req_socket = context.socket(zmq.REP)
-            req_socket.bind('tcp://*:9876')
-            self._pub_socket = context.socket(zmq.PUB)
-            self._pub_socket.bind('tcp://*:9875')  # todo: make random
+            _poller = zmq.Poller()
+            _poller.register(_req_socket, zmq.POLLIN)
+            _poller.register(_notification_socket, zmq.POLLIN)
 
-            t1 = time.time()
-            while True:
-                _td = time.time() - t1
-                log.info('listening.. (%.2fs)' % _td)
-                request = req_socket.recv_json()
-                t1 = time.time()
-                log.debug(request)
-                reply = {'type': 'error'}
-                try:
-                    if 'type' not in request:
-                        log.error('got request without "type"')
-                        reply = {'type': 'error'}
+            while not self._application_exit_request:
+                log.info('ready')
+                for _source, _ in _poller.poll():
+                    if _source is _notification_socket:
+                        _message = _notification_socket.recv_json()
+                        _pub_socket.send_json(_message)
+                        log.info("publish: '%s'", _message)
 
-                    elif request['type'] == 'hello':
-                        log.info('got "hello" request: "%s"', request)
-                        reply = {'type': 'ok',
-                                 'notifications': '9875',
-                                 'current_track': p.current_track()}
+                    elif _source is _req_socket:
+                        _request = _req_socket.recv_json()
+                        _reply = self._handle_request(_request)
+                        _req_socket.send_json(_reply)
 
-                    elif request['type'] == 'play':
-                        log.info('got "play" request')
-                        p.play()
-                        reply = {'type': 'ok'}
+            _req_socket.close()
+            _pub_socket.close()
+            self._context.close()
 
-                    elif request['type'] == 'stop':
-                        log.info('got "stop" request')
-                        #p.stop()
-                        reply = {'type': 'ok'}
+        def _handle_request(self, request):
+            _td = time.time() - self._t1
+            log.info('listening.. (%.2fs)', _td)
+            self._t1 = time.time()
+            log.debug(request)
+            try:
+                if 'type' not in request:
+                    log.error('got request without "type"')
+                    return {'type': 'error'}
 
-                    elif request['type'] == 'skip':
-                        log.info('got "skip" request')
-                        p.skip()
-                        reply = {'type': 'ok'}
+                elif request['type'] == 'hello':
+                    log.info('got "hello" request: "%s"', request)
+                    return  {'type': 'ok',
+                             'notifications': '9875',
+                             'current_track': self._player.current_track()}
 
-                    elif request['type'] == 'add':
-                        log.info('got "add" request')
-                        reply = {'type': 'ok'}
-                        break
+                elif request['type'] == 'play':
+                    log.info('got "play" request')
+                    self._player.play()
+                    return {'type': 'ok'}
 
-                    elif request['type'] == 'quit':
-                        log.info('got "quit" request')
-                        reply = {'type': 'ok'}
-                        break
+                elif request['type'] == 'stop':
+                    log.info('got "stop" request')
+                    #self._player.stop()
+                    return {'type': 'ok'}
 
-                    else:
-                        log.warning('got unknown request: "%s"', request)
-                        reply = {
-                            'type': 'error',
+                elif request['type'] == 'skip':
+                    log.info('got "skip" request')
+                    self._player.skip()
+                    return {'type': 'ok'}
+
+                elif request['type'] == 'add':
+                    log.info('got "add" request')
+                    return {'type': 'ok'}
+
+                elif request['type'] == 'quit':
+                    log.info('got "quit" request')
+                    self._application_exit_request = True
+                    return {'type': 'ok'}
+
+                else:
+                    log.warning('got unknown request: "%s"', request)
+                    return {'type': 'error',
                             'what': 'command "%s" '
                             'not known' % request['type']}
-                except Exception as e:
-                    reply = {'type': 'error', 'what': str(e)}
+            except Exception as e:
+                return {'type': 'error', 'what': str(e)}
 
-                req_socket.send_json(reply)
-                log.info('ready')
-
-            req_socket.close()
-            context.close()
-
-        def _on_publication(self, msg):
-            # TODO: decouple!!
-
-            self._pub_socket.send_json(msg)
-            log.info("publish: '%s'", msg)
-            if msg['type'] == 'now_playing':
-                self._cached_current_track_name = msg['current_track']
 
     server().run()
 
