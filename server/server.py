@@ -65,11 +65,35 @@ class player:
                     #'type': 'tick',
                     #'time': str(time.time())})
 
+    class backend_mplayer:
+        def __init__(self, comm):
+            self._comm = comm
+
+        def __enter__(self):
+            return self
+
+        def load_file(self, filename):
+            self._filename = filename
+
+        def blocking_play(self):
+            import subprocess
+            self._comm['skip'] = False
+            _process = subprocess.Popen(args=['mplayer', self._filename])
+            while _process.poll() is None and not self._comm['skip']:
+                try:
+                    _process.wait(timeout=.5)
+                except subprocess.TimeoutExpired:
+                    pass
+
+            if _process.poll() is None:
+                _process.kill()
+
         def __exit__(self, *args):
             return
 
     def __init__(self, context, config):
-        self._backend = player.backend_pygame
+        #self._backend = player.backend_pygame
+        self._backend = player.backend_mplayer
 
         self._comm = {'skip': False}
         self._config = config
