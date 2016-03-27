@@ -9,6 +9,7 @@ import time
 import random
 import argparse
 import pygame
+import json
 
 import logging as log
 
@@ -109,9 +110,9 @@ class player:
             pygame.mixer.music.play()
             while pygame.mixer.music.get_busy() and not self._skip:
                 time.sleep(1)
-                _notification_socket.send_json({
-                    'type': 'tick',
-                    'time': time.time()})
+                #_notification_socket.send_json({
+                    #'type': 'tick',
+                    #'time': str(time.time())})
 
         self._playing = False
 
@@ -181,10 +182,7 @@ class scheduler:
         return [f for f in files if self._is_music(f)]
 
     def _crawl_path(self, path=None):
-        _path = os.path.expanduser(path)
-
-        log.info('crawl path "%s"', os.path.abspath(_path))
-        for _parent, _folders, _files in os.walk(_path):
+        for _parent, _folders, _files in os.walk(path):
             # if p == '.git': continue
             #if re.search('.*/.git/.*', a) is not None: continue
             #log.info(a, p, f)
@@ -209,15 +207,17 @@ def main():
     log.basicConfig(level=_level)
     log.debug('.'.join((str(e) for e in sys.version_info)))
 
-    config = {'music_file_pattern': ('.mp3',
-                                     '.ogg',
-                                     # '.opus',
-                                     #    '.m4a',
-                                     ),
-              'input_dirs': (os.path.dirname(__file__),
-                             '~/Music/pp'),
+    config = {'music_file_pattern':    (".mp3", ".mp4", ".m4a",
+                                        ".ogg", ".opus", ),
+              'input_dirs':            (os.path.dirname(__file__),),
               'notification_endpoint': 'inproc://step2',
               }
+    try:
+        config.update(
+            json.load(
+                open(os.path.expanduser('~/.rrplayer/rrplayerrc'))))
+    except FileNotFoundError:
+        pass
 
     class server:
         def __init__(self, config):
@@ -240,10 +240,11 @@ def main():
 
         def run(self):
             for p in config['input_dirs']:
-                if not os.path.exists(p):
+                _path = os.path.expanduser(p)
+                if not os.path.exists(_path):
                     log.warning('input dir does not exist: "%s"', p)
                     continue
-                self._scheduler.add_path(p)
+                self._scheduler.add_path(_path)
 
             _req_socket = self._context.socket(zmq.REP)
             _req_socket.bind('tcp://*:9876')
