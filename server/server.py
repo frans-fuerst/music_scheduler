@@ -8,7 +8,6 @@ import threading
 import time
 import random
 import argparse
-import pygame
 import json
 
 import logging as log
@@ -32,7 +31,47 @@ class player:
         and filtering. If it needs a next file to play it informs a scheduler
         handler.
     '''
+    class error(Exception):
+        pass
+
+    class file_load_error(error):
+        pass
+
+    class backend_pygame:
+        def __init__(self, comm):
+            self._comm = comm
+
+        def __enter__(self):
+            import pygame
+            pygame.init()
+            pygame.mixer.init()
+            return self
+
+        def load_file(self, filename):
+            import pygame
+            try:
+                pygame.mixer.music.load(filename)
+            except pygame.error as ex:
+                raise player.file_load_error(
+                    'pygame.mixer.music.load threw an exception: "%s"' % repr(ex))
+
+        def blocking_play(self):
+            import pygame
+            self._comm['skip'] = False
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy() and not self._comm['skip']:
+                time.sleep(1)
+                #_notification_socket.send_json({
+                    #'type': 'tick',
+                    #'time': str(time.time())})
+
+        def __exit__(self, *args):
+            return
+
     def __init__(self, context, config):
+        self._backend = player.backend_pygame
+
+        self._comm = {'skip': False}
         self._config = config
         self._current_file = None
         self._next_file = None
@@ -40,7 +79,6 @@ class player:
         self._stop = False
         self._play_thread = None
         self._scheduler = None
-        self._skip = False
         self._context = context
 
     def set_scheduler(self, scheduler_inst):
@@ -60,6 +98,7 @@ class player:
 
     def stop(self):
         self._stop = True
+        self.skip()
         try:
             self._play_thread.join()
         except AttributeError:
@@ -76,7 +115,7 @@ class player:
             self._next_file = self._scheduler.get_next()
 
     def skip(self):
-        self._skip = True
+        self._comm['skip'] = True
 
     def current_track(self):
         return self._current_file
@@ -88,33 +127,27 @@ class player:
         _notification_socket.send_json({
                 'type': 'hello from player'})
 
-        pygame.init()
-        pygame.mixer.init()
+        with self._backend(self._comm) as _player:
+            self._playing = True
+            self._stop = False
+            while not self._stop:
+                self._fetch()
+                _notification_socket.send_json({
+                    'type': 'now_playing',
+                    'current_track': self._current_file})
 
-        self._playing = True
-        self._stop = False
-        while not self._stop:
-            self._fetch()
-            _notification_socket.send_json({
-                'type': 'now_playing',
-                'current_track': self._current_file})
+                log.info('play %s (next: %s)', self._current_file, self._next_file)
 
-            log.info('play %s (next: %s)', self._current_file, self._next_file)
-            try:
-                pygame.mixer.music.load(self._current_file)
-            except pygame.error as ex:
-                log.error('pygame.mixer.music.load threw an exception: "%s"', ex)
-                time.sleep(3)
-                continue
-            self._skip = False
-            pygame.mixer.music.play()
-            while pygame.mixer.music.get_busy() and not self._skip:
-                time.sleep(1)
-                #_notification_socket.send_json({
-                    #'type': 'tick',
-                    #'time': str(time.time())})
+                try:
+                    _player.load_file(self._current_file)
+                except player.file_load_error as ex:
+                    log.error(repr(ex))
+                    time.sleep(3)
+                    continue
 
-        self._playing = False
+                _player.blocking_play()
+
+            self._playing = False
 
 class acquirer:
     ''' Takes links and makes them available on the FS. e.g. takes a
