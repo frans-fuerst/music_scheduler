@@ -31,15 +31,14 @@ class player:
         and filtering. If it needs a next file to play it informs a scheduler
         handler.
     '''
-    def __init__(self, context, notification_endpoint):
+    def __init__(self, context, config):
+        self._config = config
         self._current_file = None
         self._next_file = None
         self._playing = False
         self._stop = False
         self._play_thread = None
         self._scheduler = None
-        #        self._publication_handler = None
-        self._notification_endpoint = notification_endpoint
         self._skip = False
         self._context = context
 
@@ -83,7 +82,7 @@ class player:
 
     def _player_fn(self):
         _notification_socket = self._context.socket(zmq.PAIR)
-        _notification_socket.connect(self._notification_endpoint)
+        _notification_socket.connect(self._config['notification_endpoint'])
 
         _notification_socket.send_json({
                 'type': 'hello from player'})
@@ -135,12 +134,15 @@ class acquirer:
 
 class scheduler:
 
-    def __init__(self):
+    def __init__(self, config):
         self.count = 0
         self._sources = []
         self._folders = {}
         self._player = None
         self._acquirer = None
+        self._music_pattern = ()
+        if 'music_file_pattern' in config:
+            self._music_pattern = config['music_file_pattern']
 
     def get_next(self):
         if len(self._folders) == 0:
@@ -167,12 +169,7 @@ class scheduler:
         self._crawl_path(path)
 
     def _is_music(self, filename):
-        return os.path.splitext(filename.lower())[1] in (
-            '.mp3',
-            '.ogg',
-        #    '.opus',
-        #    '.m4a',
-        )
+        return os.path.splitext(filename.lower())[1] in self._music_pattern
 
     def _has_music(self, files):
         for f in files:
@@ -212,14 +209,24 @@ def main():
     log.basicConfig(level=_level)
     log.debug('.'.join((str(e) for e in sys.version_info)))
 
+    config = {'music_file_pattern': ('.mp3',
+                                     '.ogg',
+                                     # '.opus',
+                                     #    '.m4a',
+                                     ),
+              'input_dirs': (os.path.dirname(__file__),
+                             '~/Music/pp'),
+              'notification_endpoint': 'inproc://step2',
+              }
+
     class server:
-        def __init__(self):
+        def __init__(self, config):
             self._t1 = time.time()
+            self._config = config
             self._application_exit_request = False
-            self._notification_endpoint = "inproc://step2"
             self._context = zmq.Context()
-            self._player = player(self._context, self._notification_endpoint)
-            self._scheduler = scheduler()
+            self._player = player(self._context, config)
+            self._scheduler = scheduler(config)
             self._acquirer = acquirer()
 
             self._player.set_scheduler(self._scheduler)
@@ -232,7 +239,11 @@ def main():
             return
 
         def run(self):
-            self._scheduler.add_path('~/Music/pp')
+            for p in config['input_dirs']:
+                if not os.path.exists(p):
+                    log.warning('input dir does not exist: "%s"', p)
+                    continue
+                self._scheduler.add_path(p)
 
             _req_socket = self._context.socket(zmq.REP)
             _req_socket.bind('tcp://*:9876')
@@ -240,7 +251,7 @@ def main():
             _pub_socket.bind('tcp://*:9875')  # todo: make random
 
             _notification_socket = self._context.socket(zmq.PAIR)
-            _notification_socket.bind(self._notification_endpoint)
+            _notification_socket.bind(self._config['notification_endpoint'])
 
             _poller = zmq.Poller()
             _poller.register(_req_socket, zmq.POLLIN)
@@ -312,7 +323,7 @@ def main():
                 return {'type': 'error', 'what': str(e)}
 
 
-    server().run()
+    server(config).run()
 
 if __name__ == '__main__':
     main()
