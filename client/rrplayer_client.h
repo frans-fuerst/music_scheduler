@@ -106,6 +106,19 @@ class rrp_client {
         return m_connected;
     }
 
+    std::string request(const std::map<std::string, std::string> &data) {
+        auto l_result = pal::str::str("{");
+        for (const auto &e : data) {
+            l_result << "\"" << e.first << "\":\"" << e.second << "\"";
+            if (&e == &(*data.rbegin())) {
+                l_result << "}";
+            } else {
+                l_result << ",";
+            }
+        }
+        return request(l_result);
+    }
+
     std::string request(const std::string &msg) {
         if (!m_connected) {
             throw rrp::invalid_state("not connected");

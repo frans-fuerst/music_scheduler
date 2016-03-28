@@ -34,6 +34,13 @@ rrplayer_mainwindow::rrplayer_mainwindow(
     m_lst_messages = l_ui_widget->findChild<QListWidget*>("lst_messages");
     m_lbl_current_track = l_ui_widget->findChild<QLabel*>("lbl_current_track");
     m_sb_position = l_ui_widget->findChild<QScrollBar*>("sb_position");
+    m_txt_ban_substring = l_ui_widget->findChild<QLineEdit*>("txt_ban_substring");
+    m_frm_ban = l_ui_widget->findChild<QFrame*>("frm_ban");
+    m_frm_search_result = l_ui_widget->findChild<QFrame*>("frm_search_result");
+
+    m_frm_ban->setVisible(false);
+    m_frm_search_result->setVisible(false);
+
     // m_lst_search_result = l_ui_widget->findChild<QListWidget*>("lst_search_result");
     // m_txt_search = l_ui_widget->findChild<QLineEdit*>("txt_search");
 
@@ -106,10 +113,11 @@ void rrplayer_mainwindow::on_server_message(const QString &a_msg) {
             log_i() << "current track: " << p.second;
             auto l_filename(pal::fs::basename(p.second));
             m_lbl_current_track->setText(QString::fromStdString(l_filename));
+            m_current_track = QString::fromStdString(p.second);
         } else if (p.first == "track_length") {
-            m_sb_position->setMaximum(std::stoi(p.second));
+            m_sb_position->setMaximum(static_cast<int>(QString::fromStdString(p.second).toFloat()));
         } else if (p.first == "current_pos") {
-            m_sb_position->setValue(std::stoi(p.second));
+            m_sb_position->setValue(static_cast<int>(QString::fromStdString(p.second).toFloat()));
         } else {
             log_d() << "   " << p.first << ": " << p.second;
         }
@@ -203,9 +211,37 @@ void rrplayer_mainwindow::on_pb_upvote_clicked() {
 
 void rrplayer_mainwindow::on_pb_ban_clicked() {
     log_i() << "ban";
+    m_frm_ban->setVisible(true);
+    m_txt_ban_substring->setText(m_current_track);
+}
+
+void rrplayer_mainwindow::on_txt_ban_substring_selectionChanged() {
+    auto l_current_selection(m_txt_ban_substring->selectedText());
+    if (l_current_selection == "") {
+        return;
+    }
+    m_selected_ban_substring = l_current_selection;
+}
+
+void rrplayer_mainwindow::on_pb_ban_crop_clicked() {
+    log_i() << "ban/crop";
+    m_txt_ban_substring->setText(m_selected_ban_substring);
+}
+
+void rrplayer_mainwindow::on_pb_ban_ok_clicked() {
+    log_i() << "ban/ok";
+    m_frm_ban->setVisible(false);
+
     try {
-        m_client.request("{\"type\": \"ban\"}");
+        // m_client.request("{\"type\": \"ban\"}");
+        m_client.request({{"type", "ban"},
+                          {"substring", m_txt_ban_substring->text().toStdString()}});
     } catch (rrp::error &) {}
+}
+
+void rrplayer_mainwindow::on_pb_ban_cancel_clicked() {
+    log_i() << "ban/cancel";
+    m_frm_ban->setVisible(false);
 }
 
 void rrplayer_mainwindow::on_pb_add_clicked() {
