@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>795</width>
-    <height>1183</height>
+    <width>700</width>
+    <height>705</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -15,15 +15,168 @@
   </property>
   <layout class="QGridLayout" name="gridLayout_2">
    <item row="0" column="0">
-    <layout class="QGridLayout" name="gridLayout">
-     <item row="2" column="2">
-      <widget class="QPushButton" name="pb_stop">
+    <layout class="QVBoxLayout" name="verticalLayout">
+     <item>
+      <widget class="QLabel" name="label">
+       <property name="font">
+        <font>
+         <family>DejaVu Sans</family>
+         <pointsize>18</pointsize>
+         <weight>75</weight>
+         <italic>true</italic>
+         <bold>true</bold>
+        </font>
+       </property>
        <property name="text">
-        <string>stop</string>
+        <string>rrplayer</string>
        </property>
       </widget>
      </item>
-     <item row="4" column="0" colspan="3">
+     <item>
+      <widget class="QLabel" name="label_2">
+       <property name="text">
+        <string>currently playing:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="lbl_current_track">
+       <property name="font">
+        <font>
+         <weight>75</weight>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>[current track]</string>
+       </property>
+       <property name="wordWrap">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="horizontalLayout_3">
+       <property name="topMargin">
+        <number>10</number>
+       </property>
+       <item>
+        <widget class="QPushButton" name="pb_upvote">
+         <property name="text">
+          <string>upvote</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pb_ban">
+         <property name="text">
+          <string>ban</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="horizontalLayout_2">
+       <item>
+        <widget class="QPushButton" name="pb_play">
+         <property name="font">
+          <font>
+           <family>FreeMono</family>
+           <pointsize>14</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>&gt;</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pb_stop">
+         <property name="font">
+          <font>
+           <family>FreeMono</family>
+           <pointsize>14</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>[]</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pb_skip">
+         <property name="font">
+          <font>
+           <family>FreeMono</family>
+           <pointsize>14</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>&gt;&gt;</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pb_volup">
+         <property name="font">
+          <font>
+           <family>DejaVu Sans Mono</family>
+           <pointsize>14</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>^</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pb_voldown">
+         <property name="font">
+          <font>
+           <family>DejaVu Sans Mono</family>
+           <pointsize>14</pointsize>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>v</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="QScrollBar" name="sb_position">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="horizontalLayout">
+       <item>
+        <widget class="QLineEdit" name="le_add"/>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pb_add">
+         <property name="text">
+          <string>add</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
       <widget class="QListView" name="lst_tracks">
        <property name="maximumSize">
         <size>
@@ -33,58 +186,13 @@
        </property>
       </widget>
      </item>
-     <item row="2" column="0">
-      <widget class="QPushButton" name="pb_play">
-       <property name="text">
-        <string>play</string>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="2">
-      <widget class="QPushButton" name="pb_add">
-       <property name="text">
-        <string>add</string>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="0" colspan="2">
-      <widget class="QLineEdit" name="le_add"/>
-     </item>
-     <item row="2" column="1">
-      <widget class="QPushButton" name="pb_skip">
-       <property name="text">
-        <string>&gt;&gt;</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="0">
-      <widget class="QPushButton" name="pb_upvote">
-       <property name="text">
-        <string>upvote</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="1">
-      <widget class="QPushButton" name="pb_ban">
-       <property name="text">
-        <string>ban</string>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="0" colspan="3">
+     <item>
       <widget class="QListWidget" name="lst_messages">
        <property name="font">
         <font>
          <family>Source Code Pro</family>
          <pointsize>9</pointsize>
         </font>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="0" colspan="3">
-      <widget class="QLabel" name="lbl_current_track">
-       <property name="text">
-        <string>[current track]</string>
        </property>
       </widget>
      </item>

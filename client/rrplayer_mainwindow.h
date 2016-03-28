@@ -50,6 +50,8 @@ private slots:
     void on_pb_upvote_clicked();
     void on_pb_ban_clicked();
     void on_pb_add_clicked();
+    void on_pb_volup_clicked();
+    void on_pb_voldown_clicked();
 //    void on_txt_search_textChanged(const QString &text);
 //    void on_txt_search_returnPressed();
 //    void on_lst_search_result_itemClicked(QListWidgetItem *);

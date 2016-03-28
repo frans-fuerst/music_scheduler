@@ -41,7 +41,7 @@ rrplayer_mainwindow::rrplayer_mainwindow(
     // QPushButton *l_pb_add = l_ui_widget->findChild<QPushButton*>("pb_add");
 
     //m_lst_search_result->setVisible(false);
-    //resize(600, height());
+    resize(700, 700);
     setWindowTitle("rrplayer");
 
     //    m_model.setLocalFolder( QDir::homePath() + QDir::separator() + "zm-local" );
@@ -98,12 +98,14 @@ void rrplayer_mainwindow::server_message(
 void rrplayer_mainwindow::on_server_message(const QString &a_msg) {
     auto l_values(pal::json::to_map(a_msg.toStdString()));
 
-    log_i() << "message:";
+    log_d() << "message:";
     for (auto &p : l_values) {
-        log_i() << "   " << p.first << ": " << p.second;
+        log_d() << "   " << p.first << ": " << p.second;
         if (p.first == "current_track") {
             auto l_filename(pal::fs::basename(p.second));
             m_lbl_current_track->setText(QString::fromStdString(l_filename));
+        } else if (p.first == "current_pos") {
+
         }
     }
 }
@@ -123,9 +125,9 @@ bool rrplayer_mainwindow::event(QEvent *event) {
 
 void rrplayer_mainwindow::on_initialized() {
     std::vector<std::string> l_hostnames = {
-        "brick", "10.0.0.103",
+        "127.0.0.1",
         "mucke", "10.0.0.113",
-        "127.0.0.1"
+        "brick", "10.0.0.103",
     };
 
     for (auto l_hostname : l_hostnames) {
@@ -167,6 +169,8 @@ void rrplayer_mainwindow::on_pb_play_clicked() {
     log_i() << "play";
     try {
         m_client.request("{\"type\": \"play\"}");
+    } catch (rrp::timeout &) {
+        log_e() << "timeout";
     } catch (rrp::error &) {}
 }
 
@@ -200,6 +204,20 @@ void rrplayer_mainwindow::on_pb_ban_clicked() {
 
 void rrplayer_mainwindow::on_pb_add_clicked() {
     log_i() << "add";
+}
+
+void rrplayer_mainwindow::on_pb_volup_clicked() {
+    log_i() << "volume up";
+    try {
+        m_client.request("{\"type\": \"volup\"}");
+    } catch (rrp::error &) {}
+}
+
+void rrplayer_mainwindow::on_pb_voldown_clicked() {
+    log_i() << "volume down";
+    try {
+        m_client.request("{\"type\": \"voldown\"}");
+    } catch (rrp::error &) {}
 }
 
 //void rrplayer_mainwindow::on_lst_search_result_itemClicked(

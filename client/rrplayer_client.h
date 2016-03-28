@@ -37,17 +37,26 @@ class rrp_client {
     void send_str(zmq::socket_t &socket, const std::string &msg) {
         zmq::message_t l_message(msg.size());
         memcpy((void *) l_message.data (), msg.data(), msg.size());
-        socket.send(l_message);
+        try {
+            socket.send(l_message);
+        } catch(zmq::error_t &ex) {
+            logger.log_e() << "fatal: could not send(): '" << ex.what() << "'";
+        }
     }
 
     std::string recv_str(zmq::socket_t &socket) {
         zmq::message_t l_msg_request;
-        if (!socket.recv(&l_msg_request)) {
-            throw rrp::timeout();
+        try {
+            if (!socket.recv(&l_msg_request)) {
+                throw rrp::timeout();
+            }
+        } catch(zmq::error_t &ex) {
+            logger.log_e() << "fatal: could not recv(): '" << ex.what() << "'";
         }
 
-        return std::string(static_cast<char*>(l_msg_request.data()),
-                           l_msg_request.size());
+        return std::string(
+                    static_cast<char*>(l_msg_request.data()),
+                    l_msg_request.size());
     }
 
     static std::shared_ptr<zmq::socket_t> create_socket(
@@ -81,7 +90,7 @@ class rrp_client {
         // const auto l_reply_values(pal::json::to_map(l_reply));
 
         m_req_socket = l_socket;
-        set_recv_timeout(m_req_socket, -1);
+        // set_recv_timeout(m_req_socket, -1);
 
         m_connected = true;
 

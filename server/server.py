@@ -38,8 +38,9 @@ class player:
         pass
 
     class backend_pygame:
-        def __init__(self, comm):
+        def __init__(self, comm, handler):
             self._comm = comm
+            self._handler = handler
 
         def __enter__(self):
             import pygame
@@ -66,36 +67,65 @@ class player:
                     #'time': str(time.time())})
 
     class backend_mplayer:
-        def __init__(self, comm):
+        def __init__(self, comm, handler):
             self._comm = comm
+            self._handler = handler
 
         def __enter__(self):
             return self
+
+        def __exit__(self, *args):
+            return
 
         def load_file(self, filename):
             self._filename = filename
 
         def blocking_play(self):
             import subprocess
+            import select
             self._comm['skip'] = False
-            _process = subprocess.Popen(args=['mplayer', self._filename])
+            _process = subprocess.Popen(args=['mplayer', self._filename],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE, bufsize=0)
+
+            _to_poll = [_process.stdout.fileno(), _process.stderr.fileno()]
+
             while _process.poll() is None and not self._comm['skip']:
-                try:
-                    _process.wait(timeout=.5)
-                except subprocess.TimeoutExpired:
-                    pass
+                if self._comm['volup']:
+                    self._comm['volup'] = False
+                    _process.stdin.write('0'.encode())
+                if self._comm['voldown']:
+                    self._comm['voldown'] = False
+                    _process.stdin.write('9'.encode())
+                for data in select.select(_to_poll, [], [], .2):
+                    if _process.stdout.fileno() in data:
+                        self._handle_output(_process.stdout.read(1000).decode())
+                    if _process.stderr.fileno() in data:
+                        log.warning("STDERR: '%s'" % _process.stderr.read(1000).decode())
 
             if _process.poll() is None:
                 _process.kill()
 
-        def __exit__(self, *args):
-            return
+        def _handle_output(self, line):
+            elems = line.strip().split()
+            if len(elems) == 0:
+                return
+            if elems[0] == "A:":
+                try:
+                    self._handler.update_pos(float(elems[1]), float(elems[4]))
+                except Exception as ex:
+                    pass
+            else:
+                print(elems)
+
 
     def __init__(self, context, config):
         #self._backend = player.backend_pygame
         self._backend = player.backend_mplayer
 
-        self._comm = {'skip': False}
+        self._comm = {'skip': False,
+                      'volup': False,
+                      'voldown': False}
         self._config = config
         self._current_file = None
         self._next_file = None
@@ -104,6 +134,8 @@ class player:
         self._play_thread = None
         self._scheduler = None
         self._context = context
+        self._last_pos = 0
+        self._notification_socket = None
 
     def set_scheduler(self, scheduler_inst):
         assert hasattr(scheduler, 'get_next')
@@ -141,22 +173,37 @@ class player:
     def skip(self):
         self._comm['skip'] = True
 
+    def volume_up(self):
+        self._comm['volup'] = True
+
+    def volume_down(self):
+        self._comm['voldown'] = True
+
     def current_track(self):
         return self._current_file
 
-    def _player_fn(self):
-        _notification_socket = self._context.socket(zmq.PAIR)
-        _notification_socket.connect(self._config['notification_endpoint'])
+    def update_pos(self, now, total):
+        if now - self._last_pos < 1.:
+            return
+        self._last_pos = now
+        print('%.1f/%.1f' % (now, total))
+        self._notification_socket.send_json({
+            'type': 'now_playing',
+            'current_pos': str(now)})
 
-        _notification_socket.send_json({
+    def _player_fn(self):
+        self._notification_socket = self._context.socket(zmq.PAIR)
+        self._notification_socket.connect(self._config['notification_endpoint'])
+
+        self._notification_socket.send_json({
                 'type': 'hello from player'})
 
-        with self._backend(self._comm) as _player:
+        with self._backend(self._comm, self) as _player:
             self._playing = True
             self._stop = False
             while not self._stop:
                 self._fetch()
-                _notification_socket.send_json({
+                self._notification_socket.send_json({
                     'type': 'now_playing',
                     'current_track': self._current_file})
 
@@ -361,6 +408,16 @@ def main():
                 elif request['type'] == 'skip':
                     log.info('got "skip" request')
                     self._player.skip()
+                    return {'type': 'ok'}
+
+                elif request['type'] == 'volup':
+                    log.info('got "volup" request')
+                    self._player.volume_up()
+                    return {'type': 'ok'}
+
+                elif request['type'] == 'voldown':
+                    log.info('got "voldown" request')
+                    self._player.volume_down()
                     return {'type': 'ok'}
 
                 elif request['type'] == 'add':
