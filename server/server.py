@@ -116,6 +116,7 @@ class player:
                 except Exception as ex:
                     pass
             else:
+                print(line)
                 print(elems)
 
 
@@ -189,7 +190,8 @@ class player:
         print('%.1f/%.1f' % (now, total))
         self._notification_socket.send_json({
             'type': 'now_playing',
-            'current_pos': str(now)})
+            'current_pos': str(now),
+            'track_length': str(total)})
 
     def _player_fn(self):
         self._notification_socket = self._context.socket(zmq.PAIR)
@@ -216,6 +218,7 @@ class player:
                     time.sleep(3)
                     continue
 
+                self._last_pos = 0
                 _player.blocking_play()
 
             self._playing = False

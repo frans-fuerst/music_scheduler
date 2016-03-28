@@ -11,6 +11,7 @@ class QLabel;
 class QEvent;
 class QCloseEvent;
 class QListWidgetItem;
+class QScrollBar;
 
 class rrplayer_mainwindow
         : public QMainWindow
@@ -21,6 +22,7 @@ class rrplayer_mainwindow
 
     QListWidget        *m_lst_messages = nullptr;
     QLabel             *m_lbl_current_track = nullptr;
+    QScrollBar         *m_sb_position = nullptr;
 //    QLineEdit          *m_txt_search = nullptr;
 //    QListWidget        *m_lst_search_result = nullptr;
     rrp_client          m_client;

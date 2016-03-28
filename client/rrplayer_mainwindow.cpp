@@ -33,6 +33,7 @@ rrplayer_mainwindow::rrplayer_mainwindow(
 
     m_lst_messages = l_ui_widget->findChild<QListWidget*>("lst_messages");
     m_lbl_current_track = l_ui_widget->findChild<QLabel*>("lbl_current_track");
+    m_sb_position = l_ui_widget->findChild<QScrollBar*>("sb_position");
     // m_lst_search_result = l_ui_widget->findChild<QListWidget*>("lst_search_result");
     // m_txt_search = l_ui_widget->findChild<QLineEdit*>("txt_search");
 
@@ -98,14 +99,19 @@ void rrplayer_mainwindow::server_message(
 void rrplayer_mainwindow::on_server_message(const QString &a_msg) {
     auto l_values(pal::json::to_map(a_msg.toStdString()));
 
-    log_d() << "message:";
+    //log_d() << "message:";
     for (auto &p : l_values) {
-        log_d() << "   " << p.first << ": " << p.second;
-        if (p.first == "current_track") {
+        if (p.first == "type") {
+        } else if (p.first == "current_track") {
+            log_i() << "current track: " << p.second;
             auto l_filename(pal::fs::basename(p.second));
             m_lbl_current_track->setText(QString::fromStdString(l_filename));
+        } else if (p.first == "track_length") {
+            m_sb_position->setMaximum(std::stoi(p.second));
         } else if (p.first == "current_pos") {
-
+            m_sb_position->setValue(std::stoi(p.second));
+        } else {
+            log_d() << "   " << p.first << ": " << p.second;
         }
     }
 }
