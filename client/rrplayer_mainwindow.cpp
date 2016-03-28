@@ -33,6 +33,7 @@ rrplayer_mainwindow::rrplayer_mainwindow(
 
     m_lst_messages = l_ui_widget->findChild<QListWidget*>("lst_messages");
     m_lbl_current_track = l_ui_widget->findChild<QLabel*>("lbl_current_track");
+    m_lbl_host = l_ui_widget->findChild<QLabel*>("lbl_host");
     m_sb_position = l_ui_widget->findChild<QScrollBar*>("sb_position");
     m_txt_ban_substring = l_ui_widget->findChild<QLineEdit*>("txt_ban_substring");
     m_frm_ban = l_ui_widget->findChild<QFrame*>("frm_ban");
@@ -149,6 +150,7 @@ void rrplayer_mainwindow::on_initialized() {
             log_i() << "try connection to: '" << l_hostname << "'";
             m_client.connect(l_hostname);
             log_i() << "success!";
+            m_lbl_host->setText(QString::fromStdString(l_hostname));
             return;
         } catch (rrp::error &e) {
             log_w() << "failure: '" << e.what() << "'";

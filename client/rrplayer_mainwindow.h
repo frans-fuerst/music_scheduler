@@ -23,6 +23,7 @@ class rrplayer_mainwindow
 
     QListWidget        *m_lst_messages = nullptr;
     QLabel             *m_lbl_current_track = nullptr;
+    QLabel             *m_lbl_host = nullptr;
     QScrollBar         *m_sb_position = nullptr;
     QFrame             *m_frm_ban = nullptr;
     QFrame             *m_frm_search_result = nullptr;
