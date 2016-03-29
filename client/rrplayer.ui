@@ -74,6 +74,42 @@
       </layout>
      </item>
      <item>
+      <widget class="QFrame" name="frm_credentials">
+       <property name="frameShape">
+        <enum>QFrame::StyledPanel</enum>
+       </property>
+       <property name="frameShadow">
+        <enum>QFrame::Raised</enum>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_4">
+        <item>
+         <widget class="QLabel" name="label_5">
+          <property name="text">
+           <string>enter username/password</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_6">
+          <item>
+           <widget class="QLineEdit" name="txt_username"/>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="txt_password"/>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pb_connect">
+            <property name="text">
+             <string>connect</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
       <widget class="QLabel" name="label_2">
        <property name="text">
         <string>currently playing:</string>
@@ -126,6 +162,13 @@
         <enum>QFrame::Raised</enum>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <widget class="QLabel" name="label_4">
+          <property name="text">
+           <string>what to ban?</string>
+          </property>
+         </widget>
+        </item>
         <item>
          <widget class="QLineEdit" name="txt_ban_substring"/>
         </item>

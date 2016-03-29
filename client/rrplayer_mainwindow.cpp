@@ -38,14 +38,16 @@ rrplayer_mainwindow::rrplayer_mainwindow(
     m_txt_ban_substring = l_ui_widget->findChild<QLineEdit*>("txt_ban_substring");
     m_frm_ban = l_ui_widget->findChild<QFrame*>("frm_ban");
     m_frm_search_result = l_ui_widget->findChild<QFrame*>("frm_search_result");
+    m_frm_credentials = l_ui_widget->findChild<QFrame*>("frm_credentials");
 
     m_frm_ban->setVisible(false);
     m_frm_search_result->setVisible(false);
+    m_frm_credentials->setVisible(false);
 
     // m_lst_search_result = l_ui_widget->findChild<QListWidget*>("lst_search_result");
     // m_txt_search = l_ui_widget->findChild<QLineEdit*>("txt_search");
 
-    // m_txt_search->setInputMethodHints(Qt::ImhNoPredictiveText);
+    // m_txt_ban_substring->setInputMethodHints(Qt::ImhNoPredictiveText);
 
     // QPushButton *l_pb_add = l_ui_widget->findChild<QPushButton*>("pb_add");
 
@@ -262,6 +264,10 @@ void rrplayer_mainwindow::on_pb_voldown_clicked() {
     try {
         m_client.request("{\"type\": \"voldown\"}");
     } catch (rrp::error &) {}
+}
+
+void rrplayer_mainwindow::on_pb_connect_clicked() {
+    log_i() << "connect";
 }
 
 //void rrplayer_mainwindow::on_lst_search_result_itemClicked(

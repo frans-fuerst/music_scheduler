@@ -28,6 +28,7 @@ class rrplayer_mainwindow
     QFrame             *m_frm_ban = nullptr;
     QFrame             *m_frm_search_result = nullptr;
     QLineEdit          *m_txt_ban_substring = nullptr;
+    QFrame             *m_frm_credentials = nullptr;
 
 //    QLineEdit          *m_txt_search = nullptr;
 //    QListWidget        *m_lst_search_result = nullptr;
@@ -66,6 +67,7 @@ private slots:
     void on_pb_volup_clicked();
     void on_pb_voldown_clicked();
     void on_txt_ban_substring_selectionChanged();
+    void on_pb_connect_clicked();
 //    void on_txt_search_textChanged(const QString &text);
 //    void on_txt_search_returnPressed();
 //    void on_lst_search_result_itemClicked(QListWidgetItem *);
