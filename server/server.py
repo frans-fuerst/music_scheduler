@@ -11,7 +11,8 @@ import json
 
 from scheduler import scheduler
 
-import logging as log
+import logging
+log = logging.getLogger('server')
 
 
 ''' design guidelines
@@ -240,19 +241,31 @@ class acquirer:
         pass
 
 
+def setup_logging(level=logging.INFO):
+    logging.basicConfig(
+        format="%(asctime)s %(name)15s %(levelname)s:  %(message)s",
+        datefmt="%y%m%d-%H%M%S",
+        level=level)
+    logging.addLevelName(logging.CRITICAL, "CC")
+    logging.addLevelName(logging.ERROR,    "EE")
+    logging.addLevelName(logging.WARNING,  "WW")
+    logging.addLevelName(logging.INFO,     "II")
+    logging.addLevelName(logging.DEBUG,    "DD")
+    logging.addLevelName(logging.NOTSET,   "NA")
 
 def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('--verbose', '-v',     action='count', default = 0)
     args = parser.parse_args()
 
-    _level = log.INFO
+    _level = logging.INFO
     if args.verbose >= 1:
-        _level = log.INFO
+        _level = logging.INFO
     if args.verbose >= 2:
-        _level = log.DEBUG
+        _level = logging.DEBUG
 
-    log.basicConfig(level=_level)
+    setup_logging(level=_level)
+
     log.debug('.'.join((str(e) for e in sys.version_info)))
 
     config = {'music_file_pattern':    (".mp3", ".mp4", ".m4a",
@@ -383,6 +396,7 @@ def main():
 
 
     server(config).run()
+
 
 if __name__ == '__main__':
     main()
