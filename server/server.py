@@ -6,9 +6,10 @@ import os
 import zmq
 import threading
 import time
-import random
 import argparse
 import json
+
+from scheduler import scheduler
 
 import logging as log
 
@@ -22,8 +23,6 @@ import logging as log
     - base components should be startable as separate processes
 
 '''
-class application_exit_request(Exception):
-    pass
 
 class player:
     ''' The player plays a given file on the FS (no URLs). In the
@@ -70,6 +69,7 @@ class player:
         def __init__(self, comm, handler):
             self._comm = comm
             self._handler = handler
+            self._filename = None
 
         def __enter__(self):
             return self
@@ -101,7 +101,7 @@ class player:
                     if _process.stdout.fileno() in data:
                         self._handle_output(_process.stdout.read(1000).decode())
                     if _process.stderr.fileno() in data:
-                        log.warning("STDERR: '%s'" % _process.stderr.read(1000).decode())
+                        log.warning("STDERR: '%s'", _process.stderr.read(1000).decode())
 
             if _process.poll() is None:
                 _process.kill()
@@ -240,65 +240,6 @@ class acquirer:
         pass
 
 
-class scheduler:
-
-    def __init__(self, config):
-        self.count = 0
-        self._sources = []
-        self._folders = {}
-        self._player = None
-        self._acquirer = None
-        self._music_pattern = ()
-        if 'music_file_pattern' in config:
-            self._music_pattern = config['music_file_pattern']
-
-    def get_next(self):
-        if len(self._folders) == 0:
-            time.sleep(1)
-            return None  # slow down endless loops
-        _folder = random.choice(list(self._folders.keys()))
-        _file = random.choice(self._folders[_folder])
-        return os.path.join(_folder, _file)
-
-    def _on_aquired(self, url, path):
-        pass
-
-    def set_player(self, player_inst):
-        assert hasattr(player, 'play')
-        self._player = player_inst
-
-    def set_acquirer(self, acquirer_inst):
-        assert hasattr(acquirer, 'aquire')
-        self._acquirer = acquirer_inst
-
-    def add_path(self, path='.'):
-        log.info('add "%s"', path)
-        self._sources.append(path)
-        self._crawl_path(path)
-
-    def _is_music(self, filename):
-        return os.path.splitext(filename.lower())[1] in self._music_pattern
-
-    def _has_music(self, files):
-        for f in files:
-            if self._is_music(f):
-                return True
-        return False
-
-    def _get_music(self, files):
-        return [f for f in files if self._is_music(f)]
-
-    def _crawl_path(self, path=None):
-        for _parent, _folders, _files in os.walk(path):
-            # if p == '.git': continue
-            #if re.search('.*/.git/.*', a) is not None: continue
-            #log.info(a, p, f)
-            if not self._has_music(_files):
-                continue
-            if _parent in self._folders:
-                continue
-            self._folders[_parent] = self._get_music(_files)
-            log.debug(_parent)
 
 def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
