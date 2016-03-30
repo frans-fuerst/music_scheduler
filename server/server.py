@@ -85,13 +85,16 @@ class player:
             import subprocess
             import select
             self._comm['skip'] = False
-            _process = subprocess.Popen(args=['mplayer', self._filename],
+            _process = subprocess.Popen(args=['mplayer', '-nolirc', self._filename],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 stdin=subprocess.PIPE, bufsize=0)
 
             _to_poll = [_process.stdout.fileno(), _process.stderr.fileno()]
 
             while _process.poll() is None and not self._comm['skip']:
+                if self._comm['pause']:
+                    self._comm['pause'] = False
+                    _process.stdin.write('p'.encode())
                 if self._comm['volup']:
                     self._comm['volup'] = False
                     _process.stdin.write('0'.encode())
@@ -117,17 +120,16 @@ class player:
                 except Exception as ex:
                     pass
             else:
-                print(line)
-                print(elems)
+                log.debug("[mplayer] %s", line)
+                log.debug("[mplayer] %s", str(elems))
 
 
     def __init__(self, context, config):
         #self._backend = player.backend_pygame
         self._backend = player.backend_mplayer
 
-        self._comm = {'skip': False,
-                      'volup': False,
-                      'voldown': False}
+        self._comm = {}
+        self._reset_comm()
         self._config = config
         self._current_file = None
         self._next_file = None
@@ -138,6 +140,12 @@ class player:
         self._context = context
         self._last_pos = 0
         self._notification_socket = None
+
+    def _reset_comm(self):
+        self._comm['skip'] = False
+        self._comm['pause'] = False
+        self._comm['volup'] = False
+        self._comm['voldown'] = False
 
     def set_scheduler(self, scheduler_inst):
         assert hasattr(scheduler, 'get_next')
@@ -175,6 +183,9 @@ class player:
     def skip(self):
         self._comm['skip'] = True
 
+    def pause(self):
+        self._comm['pause'] = True
+
     def volume_up(self):
         self._comm['volup'] = True
 
@@ -188,7 +199,6 @@ class player:
         if now - self._last_pos < 1.:
             return
         self._last_pos = now
-        print('%.1f/%.1f' % (now, total))
         self._notification_socket.send_json({
             'type': 'now_playing',
             'current_pos': str(now),
@@ -220,7 +230,13 @@ class player:
                     continue
 
                 self._last_pos = 0
-                _player.blocking_play()
+                self._reset_comm()
+
+                try:
+                    _player.blocking_play()
+                except Exception as ex:
+                    log.error("an exception occured while playing: '%s'", repr(ex))
+                    time.sleep(3)
 
             self._playing = False
 
@@ -272,6 +288,7 @@ def main():
                                         ".ogg", ".opus", ),
               'input_dirs':            (os.path.dirname(__file__),),
               'notification_endpoint': 'inproc://step2',
+              'playlist_folder':       '~/.rrplayer/lists'
               }
     try:
         config.update(
@@ -320,12 +337,12 @@ def main():
             _poller.register(_notification_socket, zmq.POLLIN)
 
             while not self._application_exit_request:
-                log.info('ready')
+                log.debug('ready')
                 for _source, _ in _poller.poll():
                     if _source is _notification_socket:
                         _message = _notification_socket.recv_json()
                         _pub_socket.send_json(_message)
-                        log.info("publish: '%s'", _message)
+                        log.debug("publish: '%s'", _message)
 
                     elif _source is _req_socket:
                         _request = _req_socket.recv_json()
@@ -360,6 +377,11 @@ def main():
                 elif request['type'] == 'stop':
                     log.info('got "stop" request')
                     #self._player.stop()
+                    return {'type': 'ok'}
+
+                elif request['type'] == 'pause':
+                    log.info('got "pause" request')
+                    self._player.pause()
                     return {'type': 'ok'}
 
                 elif request['type'] == 'skip':
