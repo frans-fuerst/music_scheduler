@@ -22,10 +22,10 @@ def test_scheduler():
         s.activate_smartlist('party')
 
         # upvote
-        s.upvote(subject='rel/path/to/file', pos=123, user='frans')
+        s.add_tag('upvote', subject='rel/path/to/file', pos=123, user='frans')
 
         #ban
-        s.add_tag('some/file_substring', user='frans')
+        s.add_tag('ban', 'some/file_substring', user='frans')
 
         print(s.present_listeners())
         s.add_present_listener('frans')

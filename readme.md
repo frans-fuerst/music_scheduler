@@ -20,7 +20,12 @@ desired features
 naming
 ------
 
-social smart media player party mode 
+- social
+- smart playlists
+- media player
+- party mode
+- conflict free
+- respectful
 
 
 technical approaches

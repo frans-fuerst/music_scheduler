@@ -282,6 +282,10 @@ def main():
 
     setup_logging(level=_level)
 
+    if sys.version_info < (3, ):
+        log.error('Need Python 3+. Get over it.')
+        sys.exit(-1)
+
     log.debug('.'.join((str(e) for e in sys.version_info)))
 
     config = {'music_file_pattern':    (".mp3", ".mp4", ".m4a",
@@ -318,7 +322,6 @@ def main():
             self._acquirer = acquirer()
 
             self._player.set_scheduler(self._scheduler)
-            self._scheduler.set_player(self._player)
 
         def __enter__(self):
             return self

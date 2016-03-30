@@ -17,7 +17,6 @@ class scheduler:
         self.count = 0
         self._sources = []
         self._folders = {}
-        self._player = None
         self._acquirer = None
         self._music_pattern = ()
         self._config = config
@@ -25,14 +24,16 @@ class scheduler:
             self._music_pattern = config['music_file_pattern']
         self._smartlists = set()
         self._active_list = None
+        self._rules = []
         self._present_listeners = set()
         self._init_lists()
+        self._dirty = False
 
     def __enter__(self):
         return self
 
     def __exit__(self, *args):
-        return
+        self._store_list()
 
     def get_smartlists(self):
         return self._smartlists
@@ -43,13 +44,26 @@ class scheduler:
     def activate_smartlist(self, list_name: str):
         if list_name not in self._smartlists:
             raise error.invalid_value('')
+        self._store_list()
+        self._rules = self._load_rules(list_name)
         self._active_list = list_name
 
-    def upvote(self, subject, pos=None, user=None):
-        pass
+    def add_tag(self, user: str, track: str, pos: int, details: dict):
+        if 'tag_name' not in details:
+            raise error.bad_request('add_tag request does not contain tag_name')
 
-    def add_tag(self, subject, user=None):
-        pass
+        _tag_name = details['tag_name']
+        if _tag_name == 'ban':
+            if 'subject' not in details:
+                raise error.bad_request('add_tag request does not contain subject')
+            _subject = details['subject']
+        elif _tag_name == 'upvote':
+            _subject = track
+        else:
+            raise error.bad_request('cannot handle tag name "%s"' % _tag_name)
+
+        self._dirty = True
+        self._rules.append((time.time(), user, _tag_name, _subject, pos))
 
     def present_listeners(self):
         return self._present_listeners
@@ -85,12 +99,31 @@ class scheduler:
         _file = random.choice(self._folders[_folder])
         return os.path.join(_folder, _file)
 
+    def _store_list(self):
+        if not self._dirty:
+            return
+        _path = os.path.join(
+            os.path.expanduser(self._config['playlist_folder']),
+            self._active_list)
+        with open(_path, 'w') as _f:
+            for r in self._rules:
+                _f.write('%s, %s, %s, %s\n' % (
+                    str(r[0]), str(r[1]), str(r[2]), str(r[3])))
+        self._dirty = False
+
+    def _load_rules(self, list_file):
+        _path = os.path.join(
+            os.path.expanduser(self._config['playlist_folder']),
+            list_file)
+
+        try:
+            with open(_path) as _f:
+                return [l.split(',') for l in _f.readlines()]
+        except FileNotFoundError:
+            return []
+
     def _on_aquired(self, url, path):
         pass
-
-    def set_player(self, player_inst):
-        assert hasattr(player_inst, 'play')
-        self._player = player_inst
 
     def set_acquirer(self, acquirer_inst):
         assert hasattr(acquirer_inst, 'aquire')
