@@ -187,37 +187,46 @@ void rrplayer_mainwindow::on_pb_play_clicked() {
     log_i() << "play";
     try {
         m_client.request({{"type", "play"}});
-    } catch (rrp::timeout &) {
-        log_e() << "timeout";
-    } catch (rrp::error &) {}
+    } catch (rrp::error &ex) {
+        log_e() << "got error '" << ex.what() << "'";
+    }
 }
 
 void rrplayer_mainwindow::on_pb_pause_clicked() {
     log_i() << "pause";
     try {
         m_client.request({{"type", "pause"}});
-    } catch (rrp::error &) {}
+    } catch (rrp::error &ex) {
+        log_e() << "got error '" << ex.what() << "'";
+    }
 }
 
 void rrplayer_mainwindow::on_pb_stop_clicked() {
     log_i() << "stop";
     try {
         m_client.request({{"type", "stop"}});
-    } catch (rrp::error &) {}
+    } catch (rrp::error &ex) {
+        log_e() << "got error '" << ex.what() << "'";
+    }
 }
 
 void rrplayer_mainwindow::on_pb_skip_clicked() {
     log_i() << "skip";
     try {
         m_client.request({{"type", "skip"}});
-    } catch (rrp::error &) {}
+    } catch (rrp::error &ex) {
+        log_e() << "got error '" << ex.what() << "'";
+    }
 }
 
 void rrplayer_mainwindow::on_pb_upvote_clicked() {
     log_i() << "upvote";
     try {
-        m_client.request({{"type", "upvote"}});
-    } catch (rrp::error &) {}
+        m_client.request({{"type", "add_tag"},
+                          {"tag_name", "upvote"}});
+    } catch (rrp::error &ex) {
+        log_e() << "got error '" << ex.what() << "'";
+    }
 }
 
 void rrplayer_mainwindow::on_pb_ban_clicked() {
@@ -244,9 +253,12 @@ void rrplayer_mainwindow::on_pb_ban_ok_clicked() {
     m_frm_ban->setVisible(false);
 
     try {
-        m_client.request({{"type", "ban"},
-                          {"substring", m_txt_ban_substring->text().toStdString()}});
-    } catch (rrp::error &) {}
+        m_client.request({{"type", "add_tag"},
+                          {"tag_name", "ban"},
+                          {"subject", m_txt_ban_substring->text().toStdString()}});
+    } catch (rrp::error &ex) {
+        log_e() << "got error '" << ex.what() << "'";
+    }
 }
 
 void rrplayer_mainwindow::on_pb_ban_cancel_clicked() {
@@ -261,15 +273,19 @@ void rrplayer_mainwindow::on_pb_add_clicked() {
 void rrplayer_mainwindow::on_pb_volup_clicked() {
     log_i() << "volume up";
     try {
-        m_client.request("{\"type\": \"volup\"}");
-    } catch (rrp::error &) {}
+        m_client.request({{"type", "volup"}});
+    } catch (rrp::error &ex) {
+        log_e() << "got error '" << ex.what() << "'";
+    }
 }
 
 void rrplayer_mainwindow::on_pb_voldown_clicked() {
     log_i() << "volume down";
     try {
-        m_client.request("{\"type\": \"voldown\"}");
-    } catch (rrp::error &) {}
+        m_client.request({{"type", "voldown"}});
+    } catch (rrp::error &ex) {
+        log_e() << "got error '" << ex.what() << "'";
+    }
 }
 
 void rrplayer_mainwindow::on_pb_connect_clicked() {

@@ -10,6 +10,7 @@ import argparse
 import json
 
 from scheduler import scheduler
+import error
 
 import logging
 log = logging.getLogger('server')
@@ -105,7 +106,9 @@ class player:
                     if _process.stdout.fileno() in data:
                         self._handle_output(_process.stdout.read(1000).decode())
                     if _process.stderr.fileno() in data:
-                        log.warning("STDERR: '%s'", _process.stderr.read(1000).decode())
+                        _str = _process.stderr.read(1000).decode().strip()
+                        if _str.strip() != "":
+                            log.warning("STDERR: '%s'", _str)
 
             if _process.poll() is None:
                 _process.kill()
@@ -118,7 +121,7 @@ class player:
                 try:
                     self._handler.update_pos(float(elems[1]), float(elems[4]))
                 except Exception as ex:
-                    pass
+                    print("EXCEPTION: %s", repr(ex))
             else:
                 log.debug("[mplayer] %s", line)
                 log.debug("[mplayer] %s", str(elems))
@@ -203,6 +206,9 @@ class player:
             'type': 'now_playing',
             'current_pos': str(now),
             'track_length': str(total)})
+
+    def current_pos(self) -> int:
+        return self._last_pos
 
     def _player_fn(self):
         self._notification_socket = self._context.socket(zmq.PAIR)
@@ -419,6 +425,9 @@ def main():
 
                 elif request['type'] == 'add_tag':
                     log.info('got "add_tag" request: %s', request)
+                    if self._player.current_track() is None:
+                        raise error.invalid_state(
+                            'no track is currently being played')
                     self._scheduler.add_tag(
                         'some_user', self._player.current_track(),
                         self._player.current_pos(), request)
@@ -434,8 +443,8 @@ def main():
                     return {'type': 'error',
                             'what': 'command "%s" '
                             'not known' % request['type']}
-            except Exception as e:
-                return {'type': 'error', 'what': str(e)}
+            except Exception as ex:
+                return {'type': 'error', 'what': repr(ex)}
 
 
     server(config).run()
