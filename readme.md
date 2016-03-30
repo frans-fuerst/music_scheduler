@@ -13,6 +13,14 @@ desired features
 - [ ] server provides fuzzy search among available files
 - [ ] listeners can upload files/urls which are being downloaded
 - [ ] clients can find and control multiple servers
+- [ ] tagging of files/folders/artists
+- [ ] server and client side blacklists/tags/upvotes
+
+
+naming
+------
+
+social smart media player party mode 
 
 
 technical approaches
