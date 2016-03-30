@@ -96,10 +96,9 @@ class scheduler:
         assert hasattr(acquirer_inst, 'aquire')
         self._acquirer = acquirer_inst
 
-    def add_path(self, path='.'):
-        log.info('add "%s"', path)
+    def add_path(self, path:str='.') -> int:
         self._sources.append(path)
-        self._crawl_path(path)
+        return self._crawl_path(path)
 
     def _is_music(self, filename):
         return os.path.splitext(filename.lower())[1] in self._music_pattern
@@ -114,6 +113,7 @@ class scheduler:
         return [f for f in files if self._is_music(f)]
 
     def _crawl_path(self, path=None):
+        _result = 0
         for _parent, _folders, _files in os.walk(path):
             # if p == '.git': continue
             #if re.search('.*/.git/.*', a) is not None: continue
@@ -123,4 +123,6 @@ class scheduler:
             if _parent in self._folders:
                 continue
             self._folders[_parent] = self._get_music(_files)
+            _result += len(self._folders[_parent])
             log.debug(_parent)
+        return _result

@@ -295,7 +295,17 @@ def main():
             json.load(
                 open(os.path.expanduser('~/.rrplayer/rrplayerrc'))))
     except FileNotFoundError:
-        pass
+        try:
+            os.makedirs(os.path.expanduser('~/.rrplayer'))
+        except FileExistsError:
+            pass
+        with open(os.path.expanduser('~/.rrplayer/rrplayerrc'), 'w') as f:
+            f.write('{\n')
+            f.write('    "input_dirs":            ["~/Music"],\n')
+            f.write('    "playlist_folder":       "~/.rrplayer/lists"\n')
+            f.write('}\n')
+        log.info("config file could not be found - I've created one for you at "
+                 "~/.rrplayer/rrplayerrc")
 
     class server:
         def __init__(self, config):
@@ -322,7 +332,8 @@ def main():
                 if not os.path.exists(_path):
                     log.warning('input dir does not exist: "%s"', p)
                     continue
-                self._scheduler.add_path(_path)
+                log.info('add "%s"', _path)
+                log.info('found %d files', self._scheduler.add_path(_path))
 
             _req_socket = self._context.socket(zmq.REP)
             _req_socket.bind('tcp://*:9876')
