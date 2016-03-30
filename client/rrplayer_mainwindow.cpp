@@ -186,30 +186,37 @@ void rrplayer_mainwindow::on_initialized() {
 void rrplayer_mainwindow::on_pb_play_clicked() {
     log_i() << "play";
     try {
-        m_client.request("{\"type\": \"play\"}");
+        m_client.request({{"type", "play"}});
     } catch (rrp::timeout &) {
         log_e() << "timeout";
+    } catch (rrp::error &) {}
+}
+
+void rrplayer_mainwindow::on_pb_pause_clicked() {
+    log_i() << "pause";
+    try {
+        m_client.request({{"type", "pause"}});
     } catch (rrp::error &) {}
 }
 
 void rrplayer_mainwindow::on_pb_stop_clicked() {
     log_i() << "stop";
     try {
-        m_client.request("{\"type\": \"stop\"}");
+        m_client.request({{"type", "stop"}});
     } catch (rrp::error &) {}
 }
 
 void rrplayer_mainwindow::on_pb_skip_clicked() {
     log_i() << "skip";
     try {
-        m_client.request("{\"type\": \"skip\"}");
+        m_client.request({{"type", "skip"}});
     } catch (rrp::error &) {}
 }
 
 void rrplayer_mainwindow::on_pb_upvote_clicked() {
     log_i() << "upvote";
     try {
-        m_client.request("{\"type\": \"upvote\"}");
+        m_client.request({{"type", "upvote"}});
     } catch (rrp::error &) {}
 }
 
@@ -237,7 +244,6 @@ void rrplayer_mainwindow::on_pb_ban_ok_clicked() {
     m_frm_ban->setVisible(false);
 
     try {
-        // m_client.request("{\"type\": \"ban\"}");
         m_client.request({{"type", "ban"},
                           {"substring", m_txt_ban_substring->text().toStdString()}});
     } catch (rrp::error &) {}

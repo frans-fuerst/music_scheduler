@@ -219,7 +219,7 @@
         <widget class="QPushButton" name="pb_play">
          <property name="font">
           <font>
-           <family>FreeMono</family>
+           <family>DejaVu Sans Mono</family>
            <pointsize>14</pointsize>
            <weight>75</weight>
            <bold>true</bold>
@@ -231,17 +231,17 @@
         </widget>
        </item>
        <item>
-        <widget class="QPushButton" name="pb_stop">
+        <widget class="QPushButton" name="pb_pause">
          <property name="font">
           <font>
-           <family>FreeMono</family>
-           <pointsize>14</pointsize>
+           <family>DejaVu Sans Mono</family>
+           <pointsize>12</pointsize>
            <weight>75</weight>
            <bold>true</bold>
           </font>
          </property>
          <property name="text">
-          <string>[]</string>
+          <string>||</string>
          </property>
         </widget>
        </item>
@@ -249,7 +249,7 @@
         <widget class="QPushButton" name="pb_skip">
          <property name="font">
           <font>
-           <family>FreeMono</family>
+           <family>DejaVu Sans Mono</family>
            <pointsize>14</pointsize>
            <weight>75</weight>
            <bold>true</bold>
