@@ -283,7 +283,7 @@ def main():
     setup_logging(level=_level)
 
     if sys.version_info < (3, ):
-        log.error('Need Python 3+. Get over it.')
+        log.error('Python 2 is no longer supported. Get over it.')
         sys.exit(-1)
 
     log.debug('.'.join((str(e) for e in sys.version_info)))
@@ -415,6 +415,13 @@ def main():
 
                 elif request['type'] == 'add':
                     log.info('got "add" request')
+                    return {'type': 'ok'}
+
+                elif request['type'] == 'add_tag':
+                    log.info('got "add_tag" request: %s', request)
+                    self._scheduler.add_tag(
+                        'some_user', self._player.current_track(),
+                        self._player.current_pos(), request)
                     return {'type': 'ok'}
 
                 elif request['type'] == 'quit':
