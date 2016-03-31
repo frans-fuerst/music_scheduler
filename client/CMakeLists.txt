@@ -41,6 +41,7 @@ file(GLOB PROJECT_FILES
     ../Readme.md
     ../Development.md
     errors.h
+    configuration.h
     rrplayer_mainwindow.cpp
     rrplayer_mainwindow.h
     rrplayer_client.h

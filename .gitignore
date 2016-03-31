@@ -4,6 +4,7 @@ build-*
 .pyc
 ~*
 *~
+*.autosave
 youtube-dl
 .cache
 .coverage

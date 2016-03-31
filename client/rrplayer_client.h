@@ -44,10 +44,10 @@ class rrp_client {
                 l_result << ",";
             }
         }
-        send_str(socket, l_result);
+        _send_str(socket, l_result);
     }
 
-    void send_str(zmq::socket_t &socket, const std::string &msg) {
+    void _send_str(zmq::socket_t &socket, const std::string &msg) {
         zmq::message_t l_message(msg.size());
         memcpy((void *) l_message.data (), msg.data(), msg.size());
         try {
@@ -93,8 +93,8 @@ class rrp_client {
         set_recv_timeout(l_socket, 1000);
         l_socket->connect(l_addr.c_str());
 
-        send_str(*l_socket, pal::str::str("{\"type\": \"hello\", \"name\":\"")
-                 << pal::os::user_name() << "\"}");
+        send_kv(*l_socket,{{"type", "hello"},
+                           {"name", pal::os::user_name()}});
         auto l_reply(recv_str(*l_socket));
         logger.log_i() << l_reply;
         m_handler.server_message(l_reply);
@@ -120,34 +120,17 @@ class rrp_client {
     }
 
     std::string request(const std::map<std::string, std::string> &data) {
-        auto l_result = pal::str::str("{");
-        for (const auto &e : data) {
-            l_result << "\"" << e.first << "\":\"" << e.second << "\"";
-            if (&e == &(*data.rbegin())) {
-                l_result << "}";
-            } else {
-                l_result << ",";
-            }
-        }
-        return request(l_result);
-    }
-
-    std::string request(const std::string &msg) {
         if (!m_connected) {
             throw rrp::invalid_state("not connected");
         }
-        send_str(*m_req_socket, msg);
+        send_kv(*m_req_socket, data);
+        //        while True:
+        //            if self._req_poller.poll(1000) == []:
+        //                print('server timeout!')
+        //                continue
+        //            break
+        //        reply = self._req_socket.recv_json()
         return recv_str(*m_req_socket);
-
-//        self._req_socket.send_json(msg)
-//        while True:
-//            if self._req_poller.poll(1000) == []:
-//                print('server timeout!')
-//                continue
-//            break
-//        reply = self._req_socket.recv_json()
-//        self._notification_handler._on_message("reply: %s" % reply)
-//        return reply
     }
 
     void shutdown() {
