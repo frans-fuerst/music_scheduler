@@ -34,6 +34,19 @@ class rrp_client {
         shutdown();
     }
 
+    void send_kv(zmq::socket_t &socket, const std::map<std::string, std::string> &data) {
+        auto l_result = pal::str::str("{");
+        for (const auto &e : data) {
+            l_result << "\"" << e.first << "\":\"" << e.second << "\"";
+            if (&e == &(*data.rbegin())) {
+                l_result << "}";
+            } else {
+                l_result << ",";
+            }
+        }
+        send_str(socket, l_result);
+    }
+
     void send_str(zmq::socket_t &socket, const std::string &msg) {
         zmq::message_t l_message(msg.size());
         memcpy((void *) l_message.data (), msg.data(), msg.size());
@@ -74,7 +87,7 @@ class rrp_client {
         socket->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
     }
 
-    void connect(const std::string &hostname) {
+    void connect(const std::string &username, const std::string &hostname) {
         std::string l_addr(pal::str::str("tcp://") << hostname << ":9876");
         auto l_socket(create_socket(m_context, ZMQ_REQ));
         set_recv_timeout(l_socket, 1000);

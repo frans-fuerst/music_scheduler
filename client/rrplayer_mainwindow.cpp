@@ -13,6 +13,7 @@
 #include <QtUiTools>
 
 #include <iostream>
+#include <stdlib.h>
 
 #if defined(ANDROID)
 #include <android/log.h>
@@ -26,7 +27,8 @@ rrplayer_mainwindow::rrplayer_mainwindow(
               &rrplayer_mainwindow::log_output, this,
               std::placeholders::_1,
               std::placeholders::_2))
-    , m_client(*this, *this) {
+    , m_client(*this, *this)
+    , m_config() {
 
     QWidget *l_ui_widget = loadUiFile();
     setCentralWidget(l_ui_widget);
@@ -72,6 +74,17 @@ rrplayer_mainwindow::rrplayer_mainwindow(
 }
 
 rrplayer_mainwindow::~rrplayer_mainwindow() {
+}
+
+std::string rrplayer_mainwindow::generate_uid() {
+    std::string l_return;
+    l_return.reserve(16);
+    l_return.resize(16);
+    const char *l_characters = "0123456789abcdef";
+    for(int i = 0; i < 16; ++i){
+        l_return[i] = l_characters[rand() % 16];
+    }
+    return l_return;
 }
 
 void rrplayer_mainwindow::log_output(
@@ -141,16 +154,18 @@ bool rrplayer_mainwindow::event(QEvent *event) {
 }
 
 void rrplayer_mainwindow::on_initialized() {
-    std::vector<std::string> l_hostnames = {
+    m_config.device.hostnames = {
         "127.0.0.1",
         "mucke", "10.0.0.113",
         "brick", "10.0.0.103",
     };
 
-    for (auto l_hostname : l_hostnames) {
+    m_config.account.user_id = generate_uid();
+
+    for (auto l_hostname : m_config.device.hostnames) {
         try {
             log_i() << "try connection to: '" << l_hostname << "'";
-            m_client.connect(l_hostname);
+            m_client.connect(m_config.account.user_id, l_hostname);
             log_i() << "success!";
             m_lbl_host->setText(QString::fromStdString(l_hostname));
             return;

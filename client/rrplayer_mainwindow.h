@@ -14,6 +14,22 @@ class QListWidgetItem;
 class QScrollBar;
 class QFrame;
 
+struct config_device_t {
+    std::vector<std::string> hostnames = {
+        "127.0.0.1"};
+};
+
+struct config_account_t {
+    std::string user_id = "";
+    std::string user_name = "";
+};
+
+struct config_t {
+    config_device_t device;
+    config_account_t account;
+    config_t() : device(), account() {}
+};
+
 class rrplayer_mainwindow
         : public QMainWindow
         , private pal::log::logger
@@ -35,6 +51,7 @@ class rrplayer_mainwindow
     rrp_client          m_client;
     QString             m_current_track = "";
     QString             m_selected_ban_substring = "";
+    config_t            m_config;
 
 public:
     explicit rrplayer_mainwindow(QWidget *parent = 0);
@@ -51,6 +68,7 @@ private:
     void closeEvent(QCloseEvent *event) override;
     void on_initialized();
     void server_message(const std::string &) override;
+    std::string generate_uid();
 
 private slots:
     void add_log_line(const QString &);
