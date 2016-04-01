@@ -104,9 +104,12 @@ class player:
                     _process.stdin.write('9'.encode())
                 for data in select.select(_to_poll, [], [], .2):
                     if _process.stdout.fileno() in data:
-                        self._handle_output(_process.stdout.read(1000).decode())
+                        self._handle_output(
+                            _process.stdout.read(1000).decode(
+                                errors='replace'))
                     if _process.stderr.fileno() in data:
-                        _str = _process.stderr.read(1000).decode().strip()
+                        _str = _process.stderr.read(1000).decode(
+                            errors='replace').strip()
                         if _str.strip() != "":
                             log.warning("STDERR: '%s'", _str)
 
