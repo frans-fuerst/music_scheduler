@@ -30,6 +30,8 @@ class rrplayer_mainwindow
     QFrame             *m_frm_ban = nullptr;
     QFrame             *m_frm_search_result = nullptr;
     QLineEdit          *m_txt_ban_substring = nullptr;
+    QLineEdit          *m_txt_username = nullptr;
+    QLineEdit          *m_txt_hostnames = nullptr;
     QFrame             *m_frm_credentials = nullptr;
 
 //    QLineEdit          *m_txt_search = nullptr;
@@ -38,6 +40,7 @@ class rrplayer_mainwindow
     QString             m_current_track = "";
     QString             m_selected_ban_substring = "";
     config_t            m_config;
+    bool                m_initialized = false;
 
 public:
     explicit rrplayer_mainwindow(QWidget *parent = 0);
@@ -58,6 +61,8 @@ private:
 
 private slots:
     void add_log_line(const QString &);
+    void one_connection_attempt();
+
     void on_server_message(const QString &);
     void on_pb_play_clicked();
     void on_pb_stop_clicked();
@@ -73,6 +78,7 @@ private slots:
     void on_pb_voldown_clicked();
     void on_txt_ban_substring_selectionChanged();
     void on_pb_connect_clicked();
+    void on_pb_config_clicked();
 //    void on_txt_search_textChanged(const QString &text);
 //    void on_txt_search_returnPressed();
 //    void on_lst_search_result_itemClicked(QListWidgetItem *);

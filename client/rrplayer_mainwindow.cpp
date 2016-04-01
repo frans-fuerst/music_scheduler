@@ -5,6 +5,7 @@
 #include <pal/pal.h>
 #include <pal/str.h>
 #include <pal/log.h>
+#include <pal/error.h>
 
 #include <QString>
 #include <QPushButton>
@@ -12,7 +13,10 @@
 #include <QTextEdit>
 #include <QtUiTools>
 
+#include <boost/algorithm/string/join.hpp>
+
 #include <iostream>
+#include <fstream>
 #include <stdlib.h>
 
 #if defined(ANDROID)
@@ -41,6 +45,8 @@ rrplayer_mainwindow::rrplayer_mainwindow(
     m_frm_ban = l_ui_widget->findChild<QFrame*>("frm_ban");
     m_frm_search_result = l_ui_widget->findChild<QFrame*>("frm_search_result");
     m_frm_credentials = l_ui_widget->findChild<QFrame*>("frm_credentials");
+    m_txt_username = l_ui_widget->findChild<QLineEdit*>("txt_username");
+    m_txt_hostnames = l_ui_widget->findChild<QLineEdit*>("txt_hostnames");
 
     m_frm_ban->setVisible(false);
     m_frm_search_result->setVisible(false);
@@ -59,7 +65,7 @@ rrplayer_mainwindow::rrplayer_mainwindow(
 
     //    m_model.setLocalFolder( QDir::homePath() + QDir::separator() + "zm-local" );
 
-    log_i() << "version: "  << 0.1;
+    log_i() << "version: "  << "0.1.2";
     log_i() << "pwd:     '" << QApplication::applicationDirPath() << "'";
 
     QMetaObject::connectSlotsByName(this);
@@ -69,8 +75,6 @@ rrplayer_mainwindow::rrplayer_mainwindow(
 
     // QSize l_pbsize(m_txt_search->height(), m_txt_search->height());
     // l_pb_add->setFixedSize(l_pbsize);
-
-    m_lbl_current_track->setText("currently");
 }
 
 rrplayer_mainwindow::~rrplayer_mainwindow() {
@@ -142,7 +146,7 @@ void rrplayer_mainwindow::on_server_message(const QString &a_msg) {
 
 bool rrplayer_mainwindow::event(QEvent *event) {
     if (event->type() == QEvent::WindowActivate) {
-        if (!m_client.is_connected()) {
+        if (!m_initialized) {
             on_initialized();
         }
     }
@@ -154,14 +158,40 @@ bool rrplayer_mainwindow::event(QEvent *event) {
 }
 
 void rrplayer_mainwindow::on_initialized() {
-    m_config.device.hostnames = {
-        "127.0.0.1",
-        "mucke", "10.0.0.113",
-        "brick", "10.0.0.103",
-    };
+    m_initialized = true;
+    try {
+        m_config.load();
+    } catch (pal::could_not_open &ex) {
+        log_w() << "could not load configuration. that better be the first run..";
+        m_config.device.hostnames = {
+            "127.0.0.1",
+            "mucke", "10.0.0.113",
+            "brick", "10.0.0.103",
+        };
 
-    m_config.account.user_id = generate_uid();
+        m_config.account.user_id = generate_uid();
+        m_config.save();
+    } catch (pal::broken_format &ex) {
+        log_e() << "exception when trying to read config file: " << ex.what();
+        throw;
+    }
 
+    log_i() << "user ID:   '" << m_config.account.user_id << "'";
+    log_i() << "user name: '" << m_config.account.user_name << "'";
+    log_i() << "hosts:     "
+            << boost::algorithm::join(m_config.device.hostnames, " ");
+
+    if (m_config.is_complete()) {
+        QTimer::singleShot(1000, this, SLOT(one_connection_attempt()));
+    } else {
+        on_pb_config_clicked();
+    }
+}
+
+void rrplayer_mainwindow::one_connection_attempt() {
+    if (m_client.is_connected()) {
+        return;
+    }
     for (auto l_hostname : m_config.device.hostnames) {
         try {
             log_i() << "try connection to: '" << l_hostname << "'";
@@ -303,8 +333,30 @@ void rrplayer_mainwindow::on_pb_voldown_clicked() {
     }
 }
 
+void rrplayer_mainwindow::on_pb_config_clicked() {
+    log_i() << "config";
+    m_txt_hostnames->setText(QString::fromStdString(
+                                 boost::algorithm::join(m_config.device.hostnames, ",")));
+    m_txt_username->setText(QString::fromStdString(
+                                 m_config.account.user_name));
+
+    m_frm_credentials->setVisible(true);
+}
+
 void rrplayer_mainwindow::on_pb_connect_clicked() {
     log_i() << "connect";
+
+    m_config.account.user_name = m_txt_username->text().toStdString();
+    pal::str::trim(m_config.account.user_name);
+    m_config.device.hostnames = pal::str::split(m_txt_hostnames->text().toStdString(), ',');
+
+    if (m_config.is_complete()) {
+        m_config.save();
+        m_frm_credentials->setVisible(false);
+        QTimer::singleShot(1000, this, SLOT(one_connection_attempt()));
+    } else {
+        log_e() << "configuration is still incomplete - please correct";
+    }
 }
 
 //void rrplayer_mainwindow::on_lst_search_result_itemClicked(
@@ -347,3 +399,72 @@ inline std::ostringstream & operator <<(
 //    stream << qstring.toStdString();
 //    return stream;
 //}
+
+void config_t::save() {
+    std::string l_filename(pal::fs::expanduser(m_device_config_filename));
+    {
+        pal::fs::mk_base_dir(l_filename);
+        std::ofstream l_config_file(l_filename);
+        if (!l_config_file.is_open()) {
+            throw rrp::io_error("cannot open local config file for writing!");
+        }
+        l_config_file << "{" << std::endl;
+        l_config_file << "    " << "\"hosts\": \""
+                      <<  boost::algorithm::join(device.hostnames, ",")
+                      << "\"" << std::endl;
+        l_config_file << "}" << std::endl;
+    }
+    {
+        std::string l_account_config_file(
+                    pal::fs::join({
+                        pal::fs::dirname(l_filename), "account", "account_config"}));
+        pal::fs::mk_base_dir(l_account_config_file);
+        std::ofstream l_config_file(l_account_config_file);
+        if (!l_config_file.is_open()) {
+            throw rrp::io_error("cannot open account config file for writing!");
+        }
+        l_config_file << "{" << std::endl;
+        l_config_file << "    " << "\"user_id\": \""
+                      << account.user_id << "\"" << "," << std::endl;
+        l_config_file << "    " << "\"user_name\": \""
+                      << account.user_name << "\"" << std::endl;
+        l_config_file << "}" << std::endl;
+
+    }
+}
+
+void config_t::load() {
+    std::vector<std::string> l_new_hostnames;
+    std::string l_new_user_id;
+    std::string l_new_user_name;
+
+    std::string l_filename(pal::fs::expanduser(m_device_config_filename));
+    pal::json::walk_file(l_filename, [&](
+                const std::string &k,
+                const std::string &v) {
+        if (k == "hosts") {
+            l_new_hostnames = pal::str::split(v, ',');
+        } else {
+            std::cout << "unknown: '" << k << "': '" << v << "'" << std::endl;
+        }
+    });
+
+    std::string l_account_config_filename(
+                pal::fs::join(
+                    {pal::fs::dirname(l_filename), "account", "account_config"}));
+    pal::json::walk_file(l_account_config_filename, [&](
+                const std::string &k,
+                const std::string &v) {
+        if (k == "user_id") {
+            l_new_user_id = v;
+        } else if (k == "user_name") {
+            l_new_user_name = v;
+        } else {
+            std::cout << "unknown: '" << k << "': '" << v << "'" << std::endl;
+        }
+    });
+
+    device.hostnames = l_new_hostnames;
+    account.user_id = l_new_user_id;
+    account.user_name = l_new_user_name;
+}

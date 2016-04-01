@@ -19,5 +19,14 @@ struct config_t {
     config_device_t device;
     config_account_t account;
     config_t() : device(), account() {}
-    void load(const std::string &filename);
+    void save();
+    void load();
+    bool is_complete() const {
+        return device.hostnames.size() > 0 &&
+                account.user_id != "" &&
+                account.user_name != "";
+    }
+
+  private:
+    std::string m_device_config_filename = "~/.rrplayer/client_config";
 };

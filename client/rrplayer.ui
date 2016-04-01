@@ -71,6 +71,13 @@
          </property>
         </widget>
        </item>
+       <item>
+        <widget class="QPushButton" name="pb_config">
+         <property name="text">
+          <string>config..</string>
+         </property>
+        </widget>
+       </item>
       </layout>
      </item>
      <item>
@@ -83,24 +90,34 @@
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_4">
         <item>
-         <widget class="QLabel" name="label_5">
-          <property name="text">
-           <string>enter username/password</string>
+         <layout class="QGridLayout" name="gridLayout">
+          <property name="topMargin">
+           <number>10</number>
           </property>
-         </widget>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_6">
-          <item>
-           <widget class="QLineEdit" name="txt_username"/>
-          </item>
-          <item>
-           <widget class="QLineEdit" name="txt_password"/>
-          </item>
-          <item>
+          <item row="1" column="2">
            <widget class="QPushButton" name="pb_connect">
             <property name="text">
              <string>connect</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLineEdit" name="txt_hostnames"/>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLineEdit" name="txt_username"/>
+          </item>
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_5">
+            <property name="text">
+             <string>username</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLabel" name="label_6">
+            <property name="text">
+             <string>hosts</string>
             </property>
            </widget>
           </item>

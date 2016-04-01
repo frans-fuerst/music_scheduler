@@ -20,4 +20,8 @@ struct timeout : public error {
     timeout(const std::string &message = "") : error(message) {}
 };
 
+struct io_error : public error {
+    io_error(const std::string &message = "") : error(message) {}
+};
+
 }
