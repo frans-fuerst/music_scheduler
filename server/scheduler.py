@@ -26,8 +26,8 @@ class scheduler:
         self._active_list = None
         self._rules = []
         self._present_listeners = set()
-        self._init_lists()
         self._dirty = False
+        self._init_lists()
 
     def __enter__(self):
         return self
@@ -47,6 +47,8 @@ class scheduler:
         self._store_list()
         self._rules = self._load_rules(list_name)
         self._active_list = list_name
+        log.info("loaded smartlist '%s' with %d rules",
+                 list_name, len(self._rules))
 
     def add_tag(self, user: str, track: str, pos: int, details: dict):
         if 'tag_name' not in details:
@@ -64,6 +66,9 @@ class scheduler:
 
         self._dirty = True
         self._rules.append((time.time(), user, _tag_name, _subject, pos))
+
+        # todo: not needed in production mode but might be useful though
+        self._store_list()
 
     def present_listeners(self):
         return self._present_listeners
@@ -89,15 +94,28 @@ class scheduler:
             _smartlists.add(f)
 
         self._smartlists = _smartlists
-        self._active_list = 'unspecified'
+        self.activate_smartlist('unspecified')
 
     def get_next(self):
         if len(self._folders) == 0:
             time.sleep(1)
             return None  # slow down endless loops
-        _folder = random.choice(list(self._folders.keys()))
-        _file = random.choice(self._folders[_folder])
-        return os.path.join(_folder, _file)
+
+        def passes(filename):
+            for e in self._rules:
+                print(e)
+                if e[2] == 'ban' and e[3] in filename:
+                    return False
+            return True
+
+        while True:
+            _folder = random.choice(list(self._folders.keys()))
+            _file = random.choice(self._folders[_folder])
+            _result = os.path.join(_folder, _file)
+            if not passes(_result):
+                print('skipped banned "%s"' % _result)
+                continue
+            return _result
 
     def _store_list(self):
         if not self._dirty:
@@ -118,7 +136,7 @@ class scheduler:
 
         try:
             with open(_path) as _f:
-                return [l.split(',') for l in _f.readlines()]
+                return [tuple((e.strip() for e in l.split(','))) for l in _f.readlines()]
         except FileNotFoundError:
             return []
 
