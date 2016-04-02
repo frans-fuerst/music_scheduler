@@ -347,7 +347,7 @@ def main():
                 log.info('add "%s"', _path)
                 log.info('found %d files', self._scheduler.add_path(_path))
 
-            _req_socket = self._context.socket(zmq.REP)
+            _req_socket = self._context.socket(zmq.ROUTER)
             _req_socket.bind('tcp://*:9876')
             _pub_socket = self._context.socket(zmq.PUB)
             _pub_socket.bind('tcp://*:9875')  # todo: make random
@@ -368,15 +368,17 @@ def main():
                         log.debug("publish: '%s'", _message)
 
                     elif _source is _req_socket:
-                        _request = _req_socket.recv_json()
-                        _reply = self._handle_request(_request)
-                        _req_socket.send_json(_reply)
+                        _client, _, _msg = _req_socket.recv_multipart()
+                        _request = zmq.utils.jsonapi.loads(_msg)
+                        _reply = self._handle_request(_client, _request)
+                        _r = _req_socket.send_multipart(
+                            (_client, b'', zmq.utils.jsonapi.dumps(_reply)))
 
             _req_socket.close()
             _pub_socket.close()
             self._context.close()
 
-        def _handle_request(self, request):
+        def _handle_request(self, client_signature, request):
             _td = time.time() - self._t1
             log.info('listening.. (%.2fs)', _td)
             self._t1 = time.time()
