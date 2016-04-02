@@ -195,7 +195,7 @@ void rrplayer_mainwindow::one_connection_attempt() {
     for (auto l_hostname : m_config.device.hostnames) {
         try {
             log_i() << "try connection to: '" << l_hostname << "'";
-            m_client.connect(m_config.account.user_id, l_hostname);
+            m_client.connect(m_config.account.user_id, m_config.account.user_name, l_hostname);
             log_i() << "success!";
             m_lbl_host->setText(QString::fromStdString(l_hostname));
             return;

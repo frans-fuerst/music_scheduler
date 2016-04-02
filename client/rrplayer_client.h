@@ -12,6 +12,8 @@
 class rrp_client {
 
   public:
+    typedef std::map<std::string, std::string> kv_map_t;
+
     class handler {
         handler(const handler &) = delete;
         handler & operator=(const handler &) = delete;
@@ -34,7 +36,7 @@ class rrp_client {
         shutdown();
     }
 
-    void send_kv(zmq::socket_t &socket, const std::map<std::string, std::string> &data) {
+    void send_kv(zmq::socket_t &socket, const kv_map_t &data) {
         auto l_result = pal::str::str("{");
         for (const auto &e : data) {
             l_result << "\"" << e.first << "\":\"" << e.second << "\"";
@@ -87,20 +89,19 @@ class rrp_client {
         socket->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
     }
 
-    void connect(const std::string &username, const std::string &hostname) {
+    void connect(
+            const std::string &user_id,
+            const std::string &user_name,
+            const std::string &hostname) {
+
+        m_user_id = user_id;
+        m_user_name = user_name;
         std::string l_addr(pal::str::str("tcp://") << hostname << ":9876");
         auto l_socket(create_socket(m_context, ZMQ_REQ));
         set_recv_timeout(l_socket, 1000);
         l_socket->connect(l_addr.c_str());
 
-        send_kv(*l_socket,{{"type", "hello"},
-                           {"name", pal::os::user_name()}});
-        auto l_reply(recv_str(*l_socket));
-        logger.log_i() << l_reply;
-        m_handler.server_message(l_reply);
-
-        // todo: handle port
-        // const auto l_reply_values(pal::json::to_map(l_reply));
+        _send_hello(*l_socket);
 
         m_req_socket = l_socket;
         // set_recv_timeout(m_req_socket, -1);
@@ -119,18 +120,28 @@ class rrp_client {
         return m_connected;
     }
 
-    std::string request(const std::map<std::string, std::string> &data) {
-        if (!m_connected) {
-            throw rrp::invalid_state("not connected");
+    kv_map_t request(const kv_map_t &data) {
+        return _request(*m_req_socket, data);
+    }
+
+    kv_map_t handle_response(const kv_map_t &data) {
+        auto _type_it = data.find("type");
+        if (_type_it == data.end()) {
+            // throw response_malformed("not 'type'");
         }
-        send_kv(*m_req_socket, data);
-        //        while True:
-        //            if self._req_poller.poll(1000) == []:
-        //                print('server timeout!')
-        //                continue
-        //            break
-        //        reply = self._req_socket.recv_json()
-        return recv_str(*m_req_socket);
+        if (_type_it->second == "error") {
+            auto _id_it = data.find("id");
+            if (_id_it == data.end()) {
+                /// throw unspecified
+            } else if (_id_it->second == "not_identified") {
+                _send_hello(*m_req_socket);
+
+            } else {
+                /// throw unspecified
+            }
+
+        }
+        return data;
     }
 
     void shutdown() {
@@ -174,6 +185,34 @@ class rrp_client {
 //        _sub_socket.close()
 //        print("disconnect from broadcasts")
     }
+  private:
+    kv_map_t _request(zmq::socket_t &socket, const kv_map_t &data) {
+        if (!m_connected) {
+            throw rrp::invalid_state("not connected");
+        }
+        send_kv(socket, data);
+        //        while True:
+        //            if self._req_poller.poll(1000) == []:
+        //                print('server timeout!')
+        //                continue
+        //            break
+        //        reply = self._req_socket.recv_json()
+        return handle_response(pal::json::to_map(recv_str(*m_req_socket)));
+    }
+
+    void _send_hello(
+                    zmq::socket_t &socket) {
+        send_kv(socket, {{"type", "hello"},
+                         {"user_id", m_user_id},
+                         {"user_name", m_user_name}});
+        auto l_response_str(recv_str(socket));
+        auto l_reply(handle_response(pal::json::to_map(l_response_str)));
+        logger.log_i() << l_response_str;
+        m_handler.server_message(l_response_str);
+
+        // todo: handle port
+        // const auto l_reply_values(pal::json::to_map(l_reply));
+    }
 
   private:
     rrp_client(const rrp_client &) = delete;
@@ -186,4 +225,6 @@ class rrp_client {
     bool                            m_running = false;
     std::shared_ptr<zmq::socket_t>  m_req_socket = nullptr;
     std::thread                     m_subscriber_thread;
+    std::string                     m_user_id = "";
+    std::string                     m_user_name = "";
 };
