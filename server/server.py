@@ -265,6 +265,167 @@ class acquirer:
     def aquire(self, url):
         pass
 
+class listener:
+    def __init__(self):
+        self.user_id = None
+        self.user_name = None
+
+class server:
+    def __init__(self, config):
+        self._t1 = time.time()
+        self._config = config
+        self._listeners = {}
+        self._application_exit_request = False
+        self._context = zmq.Context()
+        self._player = player(self._context, config)
+        self._scheduler = scheduler(config)
+        self._acquirer = acquirer()
+        self._player.set_scheduler(self._scheduler)
+
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return
+
+    def run(self):
+        for p in self._config ['input_dirs']:
+            _path = os.path.expanduser(p)
+            if not os.path.exists(_path):
+                log.warning('input dir does not exist: "%s"', p)
+                continue
+            log.info('add "%s"', _path)
+            log.info('found %d files', self._scheduler.add_path(_path))
+
+        _req_socket = self._context.socket(zmq.ROUTER)
+        _req_socket.bind('tcp://*:9876')
+        _pub_socket = self._context.socket(zmq.PUB)
+        _pub_socket.bind('tcp://*:9875')  # todo: make random
+
+        _notification_socket = self._context.socket(zmq.PAIR)
+        _notification_socket.bind(self._config['notification_endpoint'])
+
+        _poller = zmq.Poller()
+        _poller.register(_req_socket, zmq.POLLIN)
+        _poller.register(_notification_socket, zmq.POLLIN)
+
+        while not self._application_exit_request:
+            log.debug('ready')
+            for _source, _ in _poller.poll():
+                if _source is _notification_socket:
+                    _message = _notification_socket.recv_json()
+                    _pub_socket.send_json(_message)
+                    log.debug("publish: '%s'", _message)
+
+                elif _source is _req_socket:
+                    _client, _, _msg = _req_socket.recv_multipart()
+                    _request = zmq.utils.jsonapi.loads(_msg)
+                    _reply = self._handle_request(_client, _request)
+                    _req_socket.send_multipart(
+                        (_client, b'', zmq.utils.jsonapi.dumps(_reply)))
+
+        _req_socket.close()
+        _pub_socket.close()
+        self._context.close()
+
+    def _handle_request(self, client_signature, request):
+        log.info('request from %s',
+                 ' '.join("{:02x}".format(b) for b in client_signature))
+        if client_signature not in self._listeners:
+            log.info('new listener: %s',
+                     ' '.join("{:02x}".format(b) for b in client_signature))
+            self._listeners[client_signature] = listener()
+
+        _listener = self._listeners[client_signature]
+
+        _td = time.time() - self._t1
+        log.info('listening.. (%.2fs)', _td)
+        self._t1 = time.time()
+        log.debug(request)
+        try:
+            if 'type' not in request:
+                log.error('got request without "type"')
+                raise error.bad_request("'type' is missing")
+
+            _command = request['type']
+
+            if _command == 'hello':
+                log.info('got "hello" request: "%s"', request)
+                if not ('user_id' in request and 'user_name' in request):
+                    raise error.not_identified("insufficient credentials")
+
+                _listener.user_id = request['user_id']
+                _listener.user_name = request['user_name']
+
+                return  {'type': 'ok',
+                         'notifications': '9875',
+                         'server_version': 0,
+                         'current_track': self._player.current_track()}
+
+            if _listener.user_id is None:
+                log.error('unknown listener tried to give instructions')
+                raise error.not_identified("you're unknown. say hello first")
+
+            log.info("listener '%s' sent '%s'", _listener.user_name, _command)
+
+            if _command == 'play':
+                self._player.play()
+                return {'type': 'ok'}
+
+            elif _command == 'stop':
+                log.info("listener '%s' sent 'stop'", _listener.user_name)
+                #self._player.stop()
+                return error.bad_request('not implemented')
+
+            elif _command == 'pause':
+                log.info("listener '%s' sent 'pause'", _listener.user_name)
+                self._player.pause()
+                return {'type': 'ok'}
+
+            elif _command == 'skip':
+                log.info('got "skip" request')
+                self._player.skip()
+                return {'type': 'ok'}
+
+            elif _command == 'volup':
+                log.info('got "volup" request')
+                self._player.volume_up()
+                return {'type': 'ok'}
+
+            elif _command == 'voldown':
+                log.info('got "voldown" request')
+                self._player.volume_down()
+                return {'type': 'ok'}
+
+            elif _command == 'add':
+                log.info('got "add" request')
+                return {'type': 'ok'}
+
+            elif _command == 'add_tag':
+                log.info('got "add_tag" request: %s', request)
+                if self._player.current_track() is None:
+                    raise error.invalid_state(
+                        'no track is currently being played')
+                self._scheduler.add_tag(
+                    _listener.user_id, self._player.current_track(),
+                    self._player.current_pos(), request)
+                return {'type': 'ok'}
+
+            elif _command == 'quit':
+                log.info('got "quit" request')
+                self._application_exit_request = True
+                return {'type': 'ok'}
+
+            else:
+                log.warning('got unknown request: "%s"', request)
+                raise error.bad_request('got unknown request type: "%s"'% request)
+        except error.rrp_error as ex:
+            return {'type': 'error', 'id': ex.id_str, 'what': str(ex)}
+        except Exception as ex:
+            return {'type': 'error', 'id': error.internal_error.id_str,
+                    'what': repr(ex)}
+
 
 def setup_logging(level=logging.INFO):
     logging.basicConfig(
@@ -319,138 +480,6 @@ def main():
             f.write('}\n')
         log.info("config file could not be found - I've created one for you at "
                  "~/.rrplayer/rrplayerrc")
-
-    class server:
-        def __init__(self, config):
-            self._t1 = time.time()
-            self._config = config
-            self._application_exit_request = False
-            self._context = zmq.Context()
-            self._player = player(self._context, config)
-            self._scheduler = scheduler(config)
-            self._acquirer = acquirer()
-
-            self._player.set_scheduler(self._scheduler)
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            return
-
-        def run(self):
-            for p in config['input_dirs']:
-                _path = os.path.expanduser(p)
-                if not os.path.exists(_path):
-                    log.warning('input dir does not exist: "%s"', p)
-                    continue
-                log.info('add "%s"', _path)
-                log.info('found %d files', self._scheduler.add_path(_path))
-
-            _req_socket = self._context.socket(zmq.ROUTER)
-            _req_socket.bind('tcp://*:9876')
-            _pub_socket = self._context.socket(zmq.PUB)
-            _pub_socket.bind('tcp://*:9875')  # todo: make random
-
-            _notification_socket = self._context.socket(zmq.PAIR)
-            _notification_socket.bind(self._config['notification_endpoint'])
-
-            _poller = zmq.Poller()
-            _poller.register(_req_socket, zmq.POLLIN)
-            _poller.register(_notification_socket, zmq.POLLIN)
-
-            while not self._application_exit_request:
-                log.debug('ready')
-                for _source, _ in _poller.poll():
-                    if _source is _notification_socket:
-                        _message = _notification_socket.recv_json()
-                        _pub_socket.send_json(_message)
-                        log.debug("publish: '%s'", _message)
-
-                    elif _source is _req_socket:
-                        _client, _, _msg = _req_socket.recv_multipart()
-                        _request = zmq.utils.jsonapi.loads(_msg)
-                        _reply = self._handle_request(_client, _request)
-                        _r = _req_socket.send_multipart(
-                            (_client, b'', zmq.utils.jsonapi.dumps(_reply)))
-
-            _req_socket.close()
-            _pub_socket.close()
-            self._context.close()
-
-        def _handle_request(self, client_signature, request):
-            _td = time.time() - self._t1
-            log.info('listening.. (%.2fs)', _td)
-            self._t1 = time.time()
-            log.debug(request)
-            try:
-                if 'type' not in request:
-                    log.error('got request without "type"')
-                    return {'type': 'error'}
-
-                elif request['type'] == 'hello':
-                    log.info('got "hello" request: "%s"', request)
-                    return  {'type': 'ok',
-                             'notifications': '9875',
-                             'current_track': self._player.current_track()}
-
-                elif request['type'] == 'play':
-                    log.info('got "play" request')
-                    self._player.play()
-                    return {'type': 'ok'}
-
-                elif request['type'] == 'stop':
-                    log.info('got "stop" request')
-                    #self._player.stop()
-                    return {'type': 'ok'}
-
-                elif request['type'] == 'pause':
-                    log.info('got "pause" request')
-                    self._player.pause()
-                    return {'type': 'ok'}
-
-                elif request['type'] == 'skip':
-                    log.info('got "skip" request')
-                    self._player.skip()
-                    return {'type': 'ok'}
-
-                elif request['type'] == 'volup':
-                    log.info('got "volup" request')
-                    self._player.volume_up()
-                    return {'type': 'ok'}
-
-                elif request['type'] == 'voldown':
-                    log.info('got "voldown" request')
-                    self._player.volume_down()
-                    return {'type': 'ok'}
-
-                elif request['type'] == 'add':
-                    log.info('got "add" request')
-                    return {'type': 'ok'}
-
-                elif request['type'] == 'add_tag':
-                    log.info('got "add_tag" request: %s', request)
-                    if self._player.current_track() is None:
-                        raise error.invalid_state(
-                            'no track is currently being played')
-                    self._scheduler.add_tag(
-                        'some_user', self._player.current_track(),
-                        self._player.current_pos(), request)
-                    return {'type': 'ok'}
-
-                elif request['type'] == 'quit':
-                    log.info('got "quit" request')
-                    self._application_exit_request = True
-                    return {'type': 'ok'}
-
-                else:
-                    log.warning('got unknown request: "%s"', request)
-                    return {'type': 'error',
-                            'what': 'command "%s" '
-                            'not known' % request['type']}
-            except Exception as ex:
-                return {'type': 'error', 'what': repr(ex)}
-
 
     server(config).run()
 
