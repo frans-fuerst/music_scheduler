@@ -52,18 +52,14 @@ rrplayer_mainwindow::rrplayer_mainwindow(
     m_frm_search_result->setVisible(false);
     m_frm_credentials->setVisible(false);
 
-    // m_lst_search_result = l_ui_widget->findChild<QListWidget*>("lst_search_result");
-    // m_txt_search = l_ui_widget->findChild<QLineEdit*>("txt_search");
+    m_lst_result = l_ui_widget->findChild<QListWidget*>("lst_result");
+    m_txt_search_or_add = l_ui_widget->findChild<QLineEdit*>("txt_search_or_add");
 
-    // m_txt_ban_substring->setInputMethodHints(Qt::ImhNoPredictiveText);
+    m_txt_ban_substring->setInputMethodHints(Qt::ImhNoPredictiveText);
+    m_txt_search_or_add->setInputMethodHints(Qt::ImhNoPredictiveText);
 
-    // QPushButton *l_pb_add = l_ui_widget->findChild<QPushButton*>("pb_add");
-
-    //m_lst_search_result->setVisible(false);
     resize(700, 700);
     setWindowTitle("rrplayer");
-
-    //    m_model.setLocalFolder( QDir::homePath() + QDir::separator() + "zm-local" );
 
     log_i() << "version: "  << "0.1.2";
     log_i() << "pwd:     '" << QApplication::applicationDirPath() << "'";
@@ -150,10 +146,6 @@ bool rrplayer_mainwindow::event(QEvent *event) {
             on_initialized();
         }
     }
-//    if event.type() == QtCore.QEvent.WindowActivate:
-//        # we abuse this event as some sort of WindowShow event
-//        if not self._game_server_stub.is_connected():
-//            self._on_initialized()
     return QMainWindow::event(event);
 }
 
@@ -207,26 +199,46 @@ void rrplayer_mainwindow::one_connection_attempt() {
     log_i() << "no known host reachable";
 }
 
-//void rrplayer_mainwindow::on_txt_search_textChanged(
-//        const QString &text) {
-//    auto l_text = text.toStdString();
-//    // log_message(l_text != "" ? l_text : "empty search text!");
-//    auto l_results = m_documents.search(l_text);
-//    m_lst_search_result->clear();
-//    if (l_results.empty()) {
-//        m_lst_search_result->addItem("no results");
-//    }
-//    m_lst_search_result->setEnabled(!l_results.empty());
-//    for (auto i : l_results) {
-//        m_lst_search_result->addItem(QString().fromStdString(i));
-//    }
-//    m_lst_search_result->setVisible(text.length() > 0);
-//    update();
-//}
+void rrplayer_mainwindow::on_txt_search_or_add_textChanged(
+        const QString &text) {
 
-//void rrplayer_mainwindow::on_txt_search_returnPressed() {
-//    log_message("enter");
-//}
+    try {
+        search_on_server(text.toStdString());
+    } catch (rrp::timeout &) {}
+}
+
+void rrplayer_mainwindow::search_on_server(
+        const std::string a_text) {
+
+    // log_i() << (a_text != "" ? a_text : "empty search text!");
+
+    auto l_reply(m_client.request({{"type", "search"},
+                                    {"query", a_text}}));
+
+    auto l_result_it(l_reply.find("result"));
+
+    m_lst_result->clear();
+    if (l_result_it == l_reply.end()) {
+        log_e() << "result element is missing";
+        return;
+    }
+    auto l_result_items(pal::str::split(l_result_it->second, ','));
+    if (l_result_items.size() == 0) {
+        m_lst_result->addItem("no result");
+    }
+
+    for (auto &l_item : l_result_items) {
+        m_lst_result->addItem(QString::fromStdString(l_item));
+    }
+
+    m_lst_result->setEnabled(!l_result_items.empty());
+    m_frm_search_result->setVisible(a_text.length() > 0);
+    update();
+}
+
+void rrplayer_mainwindow::on_txt_search_or_add_returnPressed() {
+    log_i() << "enter";
+}
 
 void rrplayer_mainwindow::on_pb_play_clicked() {
     log_i() << "play";
@@ -359,17 +371,13 @@ void rrplayer_mainwindow::on_pb_connect_clicked() {
     }
 }
 
-//void rrplayer_mainwindow::on_lst_search_result_itemClicked(
-//        QListWidgetItem *a_item) {
-//    std::string l_doc_id(a_item->text().toStdString());
-//    log_message(sstr("item clicked: '") << l_doc_id << "'");
-//    m_txt_search->setText("");
-//    m_documents.activate_document(l_doc_id);
-//    m_txt_content->setText(
-//                QString().fromStdString(m_documents.get_content()));
-//    m_txt_content->setEnabled(true);
-//    m_txt_content->setFocus();
-//}
+void rrplayer_mainwindow::on_lst_result_itemClicked(
+        QListWidgetItem *a_item) {
+    std::string l_item(a_item->text().toStdString());
+    log_i() << "item clicked: '" << l_item << "'";
+    m_txt_search_or_add->setText("");
+    m_client.request({{"type", "schedule"}, {"item", l_item}});
+}
 
 QWidget * rrplayer_mainwindow::loadUiFile() {
     QFile l_file;

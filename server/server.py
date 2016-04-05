@@ -138,7 +138,6 @@ class player:
         self._reset_comm()
         self._config = config
         self._current_file = None
-        self._next_file = None
         self._playing = False
         self._stop = False
         self._play_thread = None
@@ -177,14 +176,10 @@ class player:
             pass
 
     def _fetch(self):
-        self._current_file = self._next_file
-        self._next_file = None
+        self._current_file = None
         # todo: must know if there's nothing to play
         while self._current_file is None:
-            self._current_file = self._next_file
-            self._next_file = self._scheduler.get_next()
-        while self._next_file is None:
-            self._next_file = self._scheduler.get_next()
+            self._current_file = self._scheduler.get_next()
 
     def skip(self):
         self._comm['skip'] = True
@@ -229,7 +224,7 @@ class player:
                     'type': 'now_playing',
                     'current_track': self._current_file})
 
-                log.info('play %s (next: %s)', self._current_file, self._next_file)
+                log.info('play %s', self._current_file)
 
                 try:
                     _player.load_file(self._current_file)
@@ -412,6 +407,17 @@ class server:
                     self._player.current_pos(), request)
                 return {'type': 'ok'}
 
+            elif _command == 'search':
+                log.info('got "search" request: %s', request)
+                return {'type': 'ok',
+                        'result': ','.join(self._scheduler.search_filenames(
+                            request['query']))}
+
+            elif _command == 'schedule':
+                log.info('got "schedule" request: %s', request)
+                self._scheduler.schedule_next_item(request['item'])
+                return {'type': 'ok'}
+
             elif _command == 'quit':
                 log.info('got "quit" request')
                 self._application_exit_request = True
@@ -486,4 +492,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

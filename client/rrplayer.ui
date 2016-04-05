@@ -319,12 +319,12 @@
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout">
        <item>
-        <widget class="QLineEdit" name="le_add"/>
+        <widget class="QLineEdit" name="txt_search_or_add"/>
        </item>
        <item>
         <widget class="QPushButton" name="pb_add">
          <property name="text">
-          <string>add</string>
+          <string>wish</string>
          </property>
         </widget>
        </item>
@@ -346,7 +346,7 @@
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_3">
         <item>
-         <widget class="QListWidget" name="listWidget"/>
+         <widget class="QListWidget" name="lst_result"/>
         </item>
        </layout>
       </widget>

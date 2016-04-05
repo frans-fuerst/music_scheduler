@@ -34,8 +34,8 @@ class rrplayer_mainwindow
     QLineEdit          *m_txt_hostnames = nullptr;
     QFrame             *m_frm_credentials = nullptr;
 
-//    QLineEdit          *m_txt_search = nullptr;
-//    QListWidget        *m_lst_search_result = nullptr;
+    QLineEdit          *m_txt_search_or_add = nullptr;
+    QListWidget        *m_lst_result = nullptr;
     rrp_client          m_client;
     QString             m_current_track = "";
     QString             m_selected_ban_substring = "";
@@ -58,6 +58,8 @@ private:
     void on_initialized();
     void server_message(const std::string &) override;
     std::string generate_uid();
+    void search_on_server(
+            const std::string text);
 
 private slots:
     void add_log_line(const QString &);
@@ -79,7 +81,7 @@ private slots:
     void on_txt_ban_substring_selectionChanged();
     void on_pb_connect_clicked();
     void on_pb_config_clicked();
-//    void on_txt_search_textChanged(const QString &text);
-//    void on_txt_search_returnPressed();
-//    void on_lst_search_result_itemClicked(QListWidgetItem *);
+    void on_txt_search_or_add_textChanged(const QString &text);
+    void on_txt_search_or_add_returnPressed();
+    void on_lst_result_itemClicked(QListWidgetItem *);
 };

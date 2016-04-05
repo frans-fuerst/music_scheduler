@@ -17,6 +17,7 @@ class scheduler:
         self.count = 0
         self._sources = []
         self._folders = {}
+        self._wishlist = []
         self._acquirer = None
         self._music_pattern = ()
         self._config = config
@@ -79,6 +80,20 @@ class scheduler:
     def remove_present_listener(self, name):
         self._present_listeners.remove(name)
 
+    def search_filenames(self, query: str) -> list:
+        _query = query.lower()
+        _result = []
+        for _path, _files in self._folders.items():
+            for f in _files:
+                if _query in f.lower():
+                    _result.append(os.path.join(_path, f))
+                    if len(_result) > 10:
+                        return _result
+        return _result
+
+    def schedule_next_item(self, item: str) -> None:
+        self._wishlist.append(item)
+
     def _init_lists(self):
         _smartlists = set(('unspecified',
                            'concentration',
@@ -97,6 +112,14 @@ class scheduler:
         self.activate_smartlist('unspecified')
 
     def get_next(self):
+        while len(self._wishlist) > 0:
+            _item = self._wishlist.pop(0)
+            if os.path.exists(_item):
+                log.info("scheduling wishlist-item %s", _item)
+                return _item
+            else:
+                log.warn("removing non-existing item '%s' from wishlist", _item)
+
         if len(self._folders) == 0:
             time.sleep(1)
             return None  # slow down endless loops
