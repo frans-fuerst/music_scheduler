@@ -285,13 +285,19 @@ class server:
         return
 
     def run(self):
+        _t = time.time()
+        _full_count = 0
         for p in self._config ['input_dirs']:
             _path = os.path.expanduser(p)
             if not os.path.exists(_path):
                 log.warning('input dir does not exist: "%s"', p)
                 continue
             log.info('add "%s"', _path)
-            log.info('found %d files', self._scheduler.add_path(_path))
+            _count = self._scheduler.add_path(_path)
+            _full_count += _count
+            log.info('%d files', _count)
+        _t = time.time() - _t
+        log.info('found a total of %d music tracks in %.1f sec', _full_count, _t)
 
         _req_socket = self._context.socket(zmq.ROUTER)
         _req_socket.bind('tcp://*:9876')

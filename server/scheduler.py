@@ -29,6 +29,7 @@ class scheduler:
         self._present_listeners = set()
         self._dirty = False
         self._init_lists()
+        self._name_components = {}
 
     def __enter__(self):
         return self
@@ -85,8 +86,8 @@ class scheduler:
         _result = []
         for _path, _files in self._folders.items():
             for f in _files:
-                if _query in f.lower():
-                    _result.append(os.path.join(_path, f))
+                if _query in f.name.lower():
+                    _result.append(os.path.join(self._extract_path(_path), f.name))
                     if len(_result) > 10:
                         return _result
         return _result
@@ -134,7 +135,7 @@ class scheduler:
         while True:
             _folder = random.choice(list(self._folders.keys()))
             _file = random.choice(self._folders[_folder])
-            _result = os.path.join(_folder, _file)
+            _result = os.path.join(self._extract_path(_folder), _file.name)
             if not passes(_result):
                 print('skipped banned "%s"' % _result)
                 continue
@@ -184,19 +185,51 @@ class scheduler:
         return False
 
     def _get_music(self, files):
-        return [f for f in files if self._is_music(f)]
+        # todo: count init/del
+        class fileinfo:
+            def __init__(self, filename):
+                self.name = filename
+        return [fileinfo(f) for f in files if self._is_music(f)]
 
-    def _crawl_path(self, path=None):
-        _result = 0
-        for _parent, _folders, _files in os.walk(path):
-            # if p == '.git': continue
-            #if re.search('.*/.git/.*', a) is not None: continue
-            #log.info(a, p, f)
-            if not self._has_music(_files):
-                continue
+    def _get_name_component_index(self, name_component:str) -> int:
+        if not name_component in self._name_components:
+            _new_index = len(self._name_components)
+            assert _new_index not in self._name_components
+            self._name_components[name_component] = _new_index
+            self._name_components[_new_index] = name_component
+            return _new_index
+        return self._name_components[name_component]
+
+    def _get_name_component(self, name_component_index: int) -> str:
+        assert name_component_index in self._name_components
+        return self._name_components[name_component_index]
+
+    def _extract_path(self, components: tuple) -> str:
+        return os.path.join(*tuple(self._get_name_component(e) for e in components))
+
+    def _crawl_path(self, path: str):
+        _path = os.path.normpath(path)
+        assert _path.startswith('/')
+        assert not _path.endswith('/')
+        _path_idx = self._get_name_component_index(_path)
+        _result_count = 0
+        for _parent, _folders, _files in os.walk(_path):
+            if '.git' in _folders: del _folders['.git']
+            if '.svn' in _folders: del _folders['.svn']
+
+            assert _parent.startswith(_path)
+            assert _parent == os.path.normpath(_parent)
+            _relpath = _parent[len(_path):].strip('/')
+            _relpath_idx = self._get_name_component_index(_relpath)
+            assert _parent == os.path.normpath(os.path.join(_path, _relpath))
+
             if _parent in self._folders:
                 continue
-            self._folders[_parent] = self._get_music(_files)
-            _result += len(self._folders[_parent])
-            log.debug(_parent)
-        return _result
+            if not self._has_music(_files):
+                continue
+            _music_file_list = self._get_music(_files)
+            self._folders[(_path_idx, _relpath_idx)] = _music_file_list
+            _result_count += len(_music_file_list)
+            log.debug(_relpath)
+
+        return _result_count
