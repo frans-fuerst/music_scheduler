@@ -33,7 +33,7 @@
           </font>
          </property>
          <property name="text">
-          <string>rrplayer</string>
+          <string>party player</string>
          </property>
         </widget>
        </item>
@@ -134,6 +134,19 @@
       </widget>
      </item>
      <item>
+      <widget class="QLabel" name="lbl_current_track_location">
+       <property name="font">
+        <font>
+         <weight>75</weight>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>[current track location]</string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QLabel" name="lbl_current_track">
        <property name="font">
         <font>
@@ -192,6 +205,34 @@
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_4">
           <item>
+           <widget class="QPushButton" name="pb_ban_path">
+            <property name="text">
+             <string>path</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pb_ban_folder">
+            <property name="text">
+             <string>folder</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pb_ban_file">
+            <property name="text">
+             <string>file</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pb_ban_crop">
+            <property name="text">
+             <string>crop</string>
+            </property>
+           </widget>
+          </item>
+          <item>
            <spacer name="horizontalSpacer">
             <property name="orientation">
              <enum>Qt::Horizontal</enum>
@@ -203,13 +244,6 @@
              </size>
             </property>
            </spacer>
-          </item>
-          <item>
-           <widget class="QPushButton" name="pb_ban_crop">
-            <property name="text">
-             <string>Crop</string>
-            </property>
-           </widget>
           </item>
           <item>
            <widget class="QPushButton" name="pb_ban_cancel">

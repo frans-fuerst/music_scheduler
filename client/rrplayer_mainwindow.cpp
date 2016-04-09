@@ -39,6 +39,7 @@ rrplayer_mainwindow::rrplayer_mainwindow(
 
     m_lst_messages = l_ui_widget->findChild<QListWidget*>("lst_messages");
     m_lbl_current_track = l_ui_widget->findChild<QLabel*>("lbl_current_track");
+    m_lbl_current_track_location = l_ui_widget->findChild<QLabel*>("lbl_current_track_location");
     m_lbl_host = l_ui_widget->findChild<QLabel*>("lbl_host");
     m_sb_position = l_ui_widget->findChild<QScrollBar*>("sb_position");
     m_txt_ban_substring = l_ui_widget->findChild<QLineEdit*>("txt_ban_substring");
@@ -47,13 +48,13 @@ rrplayer_mainwindow::rrplayer_mainwindow(
     m_frm_credentials = l_ui_widget->findChild<QFrame*>("frm_credentials");
     m_txt_username = l_ui_widget->findChild<QLineEdit*>("txt_username");
     m_txt_hostnames = l_ui_widget->findChild<QLineEdit*>("txt_hostnames");
+    m_lst_result = l_ui_widget->findChild<QListWidget*>("lst_result");
+    m_txt_search_or_add = l_ui_widget->findChild<QLineEdit*>("txt_search_or_add");
 
     m_frm_ban->setVisible(false);
     m_frm_search_result->setVisible(false);
     m_frm_credentials->setVisible(false);
 
-    m_lst_result = l_ui_widget->findChild<QListWidget*>("lst_result");
-    m_txt_search_or_add = l_ui_widget->findChild<QLineEdit*>("txt_search_or_add");
 
     m_txt_ban_substring->setInputMethodHints(Qt::ImhNoPredictiveText);
     m_txt_search_or_add->setInputMethodHints(Qt::ImhNoPredictiveText);
@@ -61,7 +62,7 @@ rrplayer_mainwindow::rrplayer_mainwindow(
     resize(700, 700);
     setWindowTitle("rrplayer");
 
-    log_i() << "version: "  << "0.1.2";
+    log_i() << "version: "  << m_client.version;
     log_i() << "pwd:     '" << QApplication::applicationDirPath() << "'";
 
     QMetaObject::connectSlotsByName(this);
@@ -126,14 +127,25 @@ void rrplayer_mainwindow::on_server_message(const QString &a_msg) {
     for (auto &p : l_values) {
         if (p.first == "type") {
         } else if (p.first == "current_track") {
-            log_i() << "current track: " << p.second;
-            auto l_filename(pal::fs::basename(p.second));
-            m_lbl_current_track->setText(QString::fromStdString(l_filename));
-            m_current_track = QString::fromStdString(p.second);
+            auto l_current_track_components(pal::str::split(p.second, ':'));
+            if (l_current_track_components.size() >= 3) {
+                log_i() << "now playing: " << l_current_track_components[1]
+                        << "/" << l_current_track_components[2];
+                m_lbl_current_track->setText(
+                            QString::fromStdString(
+                                pal::fs::basename(l_current_track_components[2])));
+                m_lbl_current_track_location->setText(
+                            QString::fromStdString(l_current_track_components[1]));
+                m_current_track = l_current_track_components[1]
+                                + "/"
+                                + l_current_track_components[2];
+            }
         } else if (p.first == "track_length") {
-            m_sb_position->setMaximum(static_cast<int>(QString::fromStdString(p.second).toFloat()));
+            m_sb_position->setMaximum(static_cast<int>(
+                QString::fromStdString(p.second).toFloat()));
         } else if (p.first == "current_pos") {
-            m_sb_position->setValue(static_cast<int>(QString::fromStdString(p.second).toFloat()));
+            m_sb_position->setValue(static_cast<int>(
+                QString::fromStdString(p.second).toFloat()));
         } else {
             log_d() << "   " << p.first << ": " << p.second;
         }
@@ -208,7 +220,7 @@ void rrplayer_mainwindow::on_txt_search_or_add_textChanged(
 }
 
 void rrplayer_mainwindow::search_on_server(
-        const std::string a_text) {
+        const std::string &a_text) {
 
     // log_i() << (a_text != "" ? a_text : "empty search text!");
 
@@ -218,17 +230,20 @@ void rrplayer_mainwindow::search_on_server(
     auto l_result_it(l_reply.find("result"));
 
     m_lst_result->clear();
+    m_search_result_identifier.clear();
     if (l_result_it == l_reply.end()) {
         log_e() << "result element is missing";
         return;
     }
-    auto l_result_items(pal::str::split(l_result_it->second, ','));
+    auto l_result_items(pal::str::split(l_result_it->second, '|'));
     if (l_result_items.size() == 0) {
         m_lst_result->addItem("no result");
     }
 
     for (auto &l_item : l_result_items) {
-        m_lst_result->addItem(QString::fromStdString(l_item));
+        auto l_components(pal::str::split(l_item, ':'));
+        m_lst_result->addItem(QString::fromStdString(l_components[1]));
+        m_search_result_identifier.push_back(l_components[0]);
     }
 
     m_lst_result->setEnabled(!l_result_items.empty());
@@ -289,7 +304,7 @@ void rrplayer_mainwindow::on_pb_upvote_clicked() {
 void rrplayer_mainwindow::on_pb_ban_clicked() {
     log_i() << "ban";
     m_frm_ban->setVisible(true);
-    m_txt_ban_substring->setText(m_current_track);
+    m_txt_ban_substring->setText(QString::fromStdString(m_current_track));
 }
 
 void rrplayer_mainwindow::on_txt_ban_substring_selectionChanged() {
@@ -301,8 +316,30 @@ void rrplayer_mainwindow::on_txt_ban_substring_selectionChanged() {
 }
 
 void rrplayer_mainwindow::on_pb_ban_crop_clicked() {
-    log_i() << "ban/crop";
     m_txt_ban_substring->setText(m_selected_ban_substring);
+}
+
+void rrplayer_mainwindow::on_pb_ban_path_clicked() {
+    std::vector<std::string> l_components(pal::str::split(m_current_track, '/'));
+    if (l_components.size() < 1) {
+        return;
+    }
+    l_components.pop_back();
+    m_txt_ban_substring->setText(QString::fromStdString(
+                                     boost::algorithm::join(l_components, "/")));
+}
+
+void rrplayer_mainwindow::on_pb_ban_folder_clicked() {
+    std::vector<std::string> l_components(pal::str::split(m_current_track, '/'));
+    if (l_components.size() < 2) {
+        return;
+    }
+    m_txt_ban_substring->setText(QString::fromStdString(*(l_components.rbegin() + 1)));
+}
+
+void rrplayer_mainwindow::on_pb_ban_file_clicked() {
+    std::vector<std::string> l_components(pal::str::split(m_current_track, '/'));
+    m_txt_ban_substring->setText(QString::fromStdString(*l_components.rbegin()));
 }
 
 void rrplayer_mainwindow::on_pb_ban_ok_clicked() {
@@ -373,10 +410,14 @@ void rrplayer_mainwindow::on_pb_connect_clicked() {
 
 void rrplayer_mainwindow::on_lst_result_itemClicked(
         QListWidgetItem *a_item) {
+    int l_index(m_lst_result->selectionModel()->currentIndex().row());
     std::string l_item(a_item->text().toStdString());
-    log_i() << "item clicked: '" << l_item << "'";
+    std::string l_search_identifier(m_search_result_identifier[l_index]);
+    log_i() << "item clicked: '" << l_item << "' "
+            << l_search_identifier;
     m_txt_search_or_add->setText("");
-    m_client.request({{"type", "schedule"}, {"item", l_item}});
+    m_client.request({{"type", "schedule"},
+                      {"item", l_search_identifier}});
 }
 
 QWidget * rrplayer_mainwindow::loadUiFile() {

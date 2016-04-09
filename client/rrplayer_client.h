@@ -12,6 +12,7 @@
 class rrp_client {
 
   public:
+    const std::string version = "0.1.4";
     typedef std::map<std::string, std::string> kv_map_t;
 
     class handler {
@@ -120,8 +121,8 @@ class rrp_client {
         return m_connected;
     }
 
-    kv_map_t request(const kv_map_t &data) {
-        return _request(*m_req_socket, data);
+    kv_map_t request(const kv_map_t &data, bool throw_on_timeout=false) {
+        return _request(*m_req_socket, data, throw_on_timeout);
     }
 
     kv_map_t handle_response(const kv_map_t &data) {
@@ -186,7 +187,11 @@ class rrp_client {
 //        print("disconnect from broadcasts")
     }
   private:
-    kv_map_t _request(zmq::socket_t &socket, const kv_map_t &data) {
+    kv_map_t _request(
+                  zmq::socket_t &socket,
+            const kv_map_t      &data,
+                  bool           throw_on_timeout) {
+
         if (!m_connected) {
             throw rrp::invalid_state("not connected");
         }
@@ -197,7 +202,16 @@ class rrp_client {
         //                continue
         //            break
         //        reply = self._req_socket.recv_json()
-        return handle_response(pal::json::to_map(recv_str(*m_req_socket)));
+        try {
+            return handle_response(pal::json::to_map(recv_str(*m_req_socket)));
+        } catch (rrp::timeout &ex) {
+            if (throw_on_timeout) {
+                throw;
+            } else {
+                // here we have to handle timeouts in a gerneric way
+                return kv_map_t();
+            }
+        }
     }
 
     void _send_hello(

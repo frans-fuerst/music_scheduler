@@ -222,12 +222,12 @@ class player:
                 self._fetch()
                 self._notification_socket.send_json({
                     'type': 'now_playing',
-                    'current_track': self._current_file})
+                    'current_track': ':'.join(self._current_file)})
 
-                log.info('play %s', self._current_file)
+                log.info('play %s', os.path.join(*self._current_file[1:]))
 
                 try:
-                    _player.load_file(self._current_file)
+                    _player.load_file(os.path.join(*self._current_file))
                 except player.file_load_error as ex:
                     log.error(repr(ex))
                     time.sleep(3)
@@ -360,9 +360,12 @@ class server:
                 _listener.user_name = request['user_name']
 
                 return  {'type': 'ok',
-                         'notifications': '9875',
-                         'server_version': 0,
-                         'current_track': self._player.current_track()}
+                         'notifications':  '9875',
+                         'server_version': '0.1.4',
+                         'current_track': (
+                             ':'.join(self._player.current_track())
+                             if self._player.current_track() is not None
+                             else None)}
 
             if _listener.user_id is None:
                 log.error('unknown listener tried to give instructions')
@@ -415,9 +418,11 @@ class server:
 
             elif _command == 'search':
                 log.info('got "search" request: %s', request)
+                _search_result = self._scheduler.search_filenames(
+                    request['query'])
+                _search_result = (':'.join((str(i) for i in e)) for e in _search_result)
                 return {'type': 'ok',
-                        'result': ','.join(self._scheduler.search_filenames(
-                            request['query']))}
+                        'result': '|'.join(_search_result)}
 
             elif _command == 'schedule':
                 log.info('got "schedule" request: %s', request)

@@ -4,6 +4,8 @@
 #include "./rrplayer_client.h"
 #include "./configuration.h"
 
+#include <vector>
+#include <string>
 #include <QMainWindow>
 
 class QListWidget;
@@ -23,30 +25,32 @@ class rrplayer_mainwindow
 
     Q_OBJECT
 
-    QListWidget        *m_lst_messages = nullptr;
-    QLabel             *m_lbl_current_track = nullptr;
-    QLabel             *m_lbl_host = nullptr;
-    QScrollBar         *m_sb_position = nullptr;
-    QFrame             *m_frm_ban = nullptr;
-    QFrame             *m_frm_search_result = nullptr;
-    QLineEdit          *m_txt_ban_substring = nullptr;
-    QLineEdit          *m_txt_username = nullptr;
-    QLineEdit          *m_txt_hostnames = nullptr;
-    QFrame             *m_frm_credentials = nullptr;
+    rrp_client                  m_client;
+    std::string                 m_current_track = "";
+    QString                     m_selected_ban_substring = "";
+    config_t                    m_config;
+    bool                        m_initialized = false;
+    std::vector<std::string>    m_search_result_identifier {};
 
-    QLineEdit          *m_txt_search_or_add = nullptr;
-    QListWidget        *m_lst_result = nullptr;
-    rrp_client          m_client;
-    QString             m_current_track = "";
-    QString             m_selected_ban_substring = "";
-    config_t            m_config;
-    bool                m_initialized = false;
+    QListWidget *m_lst_messages = nullptr;
+    QLabel      *m_lbl_current_track = nullptr;
+    QLabel      *m_lbl_current_track_location = nullptr;
+    QLabel      *m_lbl_host = nullptr;
+    QScrollBar  *m_sb_position = nullptr;
+    QFrame      *m_frm_ban = nullptr;
+    QFrame      *m_frm_search_result = nullptr;
+    QLineEdit   *m_txt_ban_substring = nullptr;
+    QLineEdit   *m_txt_username = nullptr;
+    QLineEdit   *m_txt_hostnames = nullptr;
+    QFrame      *m_frm_credentials = nullptr;
+    QLineEdit   *m_txt_search_or_add = nullptr;
+    QListWidget *m_lst_result = nullptr;
 
 public:
     explicit rrplayer_mainwindow(QWidget *parent = 0);
     virtual ~rrplayer_mainwindow();
-    rrplayer_mainwindow(const rrplayer_mainwindow&) = delete;
-    rrplayer_mainwindow & operator=(const rrplayer_mainwindow&) = delete;
+    rrplayer_mainwindow(const rrplayer_mainwindow &) = delete;
+    rrplayer_mainwindow & operator=(const rrplayer_mainwindow &) = delete;
 
 private:
     void log_output(
@@ -59,7 +63,7 @@ private:
     void server_message(const std::string &) override;
     std::string generate_uid();
     void search_on_server(
-            const std::string text);
+            const std::string &text);
 
 private slots:
     void add_log_line(const QString &);
@@ -75,6 +79,9 @@ private slots:
     void on_pb_ban_ok_clicked();
     void on_pb_ban_cancel_clicked();
     void on_pb_ban_crop_clicked();
+    void on_pb_ban_path_clicked();
+    void on_pb_ban_folder_clicked();
+    void on_pb_ban_file_clicked();
     void on_pb_add_clicked();
     void on_pb_volup_clicked();
     void on_pb_voldown_clicked();

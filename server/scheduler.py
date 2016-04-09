@@ -82,18 +82,31 @@ class scheduler:
         self._present_listeners.remove(name)
 
     def search_filenames(self, query: str) -> list:
-        _query = query.lower()
+        _query = query.lower().split()
         _result = []
         for _path, _files in self._folders.items():
+            _score_plus = 0
+            _p2 = self._get_name_component(_path[1])
+            for q in _query:
+                if q in _p2.lower():
+                    _score_plus += 1
             for f in _files:
-                if _query in f.name.lower():
-                    _result.append(os.path.join(self._extract_path(_path), f.name))
-                    if len(_result) > 10:
-                        return _result
-        return _result
+                _f = self._get_name_component(f.name_index)
+                _score = 0
+                for q in _query:
+                    if q in _f.lower():
+                        _score += 1
+                if _score + _score_plus > 0:
+                    _result.append(
+                        ("%d/%d/%d" % (_path[0], _path[1], f.name_index),
+                         os.path.join(_p2, _f),
+                         _score + _score_plus))
+        _result.sort(key=lambda tup: tup[2], reverse=True)
+        return _result[:20]
 
     def schedule_next_item(self, item: str) -> None:
-        self._wishlist.append(item)
+        _components = (int(e) for e in item.split('/'))
+        self._wishlist.append(self._get_name_components(_components))
 
     def _init_lists(self):
         _smartlists = set(('unspecified',
@@ -112,10 +125,10 @@ class scheduler:
         self._smartlists = _smartlists
         self.activate_smartlist('unspecified')
 
-    def get_next(self):
+    def get_next(self) -> tuple:
         while len(self._wishlist) > 0:
             _item = self._wishlist.pop(0)
-            if os.path.exists(_item):
+            if os.path.exists(os.path.join(*_item)):
                 log.info("scheduling wishlist-item %s", _item)
                 return _item
             else:
@@ -133,13 +146,17 @@ class scheduler:
             return True
 
         while True:
-            _folder = random.choice(list(self._folders.keys()))
-            _file = random.choice(self._folders[_folder])
-            _result = os.path.join(self._extract_path(_folder), _file.name)
-            if not passes(_result):
-                print('skipped banned "%s"' % _result)
+            _location = random.choice(list(self._folders.keys()))
+            _p1, _p2 = self._get_name_components(_location)
+            if not (passes(_p1) and passes(_p2)):
+                log.info('skipped banned location "%s/%s"', _p1, _p2)
                 continue
-            return _result
+            _file = random.choice(self._folders[_location])
+            _f =  self._get_name_component(_file.name_index)
+            if not passes(_f):
+                log.info('skipped banned file "%s/%s"', _p2, _f)
+                continue
+            return (_p1, _p2, _f)
 
     def _store_list(self):
         if not self._dirty:
@@ -187,9 +204,10 @@ class scheduler:
     def _get_music(self, files):
         # todo: count init/del
         class fileinfo:
-            def __init__(self, filename):
-                self.name = filename
-        return [fileinfo(f) for f in files if self._is_music(f)]
+            def __init__(self, filename_index):
+                self.name_index = filename_index
+        return [fileinfo(self._get_name_component_index(f))
+                for f in files if self._is_music(f)]
 
     def _get_name_component_index(self, name_component:str) -> int:
         if not name_component in self._name_components:
@@ -204,8 +222,8 @@ class scheduler:
         assert name_component_index in self._name_components
         return self._name_components[name_component_index]
 
-    def _extract_path(self, components: tuple) -> str:
-        return os.path.join(*tuple(self._get_name_component(e) for e in components))
+    def _get_name_components(self, indices: tuple) -> tuple:
+        return tuple(self._get_name_component(e) for e in indices)
 
     def _crawl_path(self, path: str):
         _path = os.path.normpath(path)
