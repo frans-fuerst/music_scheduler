@@ -38,8 +38,8 @@ qt5_add_resources(
 )
 
 file(GLOB PROJECT_FILES
-    ../Readme.md
-    ../Development.md
+    ../readme.md
+    ../todo.md
     errors.h
     configuration.h
     rrplayer_mainwindow.cpp

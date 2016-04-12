@@ -1,5 +1,5 @@
-rrplayer - respectful remote player
-===================================
+partyplayer - respectful remote player
+======================================
 
 desired features
 ----------------
@@ -20,6 +20,9 @@ desired features
 naming
 ------
 
+- party
+- company
+- democratic
 - social
 - smart playlists
 - media player
@@ -48,7 +51,7 @@ https://github.com/rg3/youtube-dl
 interesting links
 -----------------
 * http://albertz.github.io/music-player/
-  https://pypi.python.org/pypi/musicplayer
+* https://pypi.python.org/pypi/musicplayer
 
 
 API
@@ -71,11 +74,5 @@ server -> clients (publish)
 
 requirements
 ------------
-python3
-
-python3-pygame
- pip3
- mercurial
- pip3 -v install hg+http://bitbucket.org/pygame/pygame
- SDL-devel
- http://pkgs.org/search/smpeg-devel
+* python3
+* mplayer
