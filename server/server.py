@@ -71,7 +71,9 @@ class player:
         def __init__(self, comm, handler):
             self._comm = comm
             self._handler = handler
-            self._filename = None
+            #self._filename = None
+            #self._pause = False
+            #self._volume = 100  # todo: make configurable
 
         def __enter__(self):
             return self
@@ -79,29 +81,26 @@ class player:
         def __exit__(self, *args):
             return
 
-        def load_file(self, filename):
-            self._filename = filename
-
         def blocking_play(self):
             import subprocess
             import select
             self._comm['skip'] = False
-            _process = subprocess.Popen(args=['mplayer', '-nolirc', self._filename],
+            _process = subprocess.Popen(args=['mplayer', '-slave', '-nolirc',
+                                              self._handler.handler_get_filename()],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 stdin=subprocess.PIPE, bufsize=0)
 
             _to_poll = [_process.stdout.fileno(), _process.stderr.fileno()]
-
             while _process.poll() is None and not self._comm['skip']:
                 if self._comm['pause']:
                     self._comm['pause'] = False
-                    _process.stdin.write('p'.encode())
-                if self._comm['volup']:
-                    self._comm['volup'] = False
-                    _process.stdin.write('0'.encode())
-                if self._comm['voldown']:
-                    self._comm['voldown'] = False
-                    _process.stdin.write('9'.encode())
+                    _process.stdin.write('pause\n'.encode())
+                    self._handler.handler_set_pause(
+                        not self._handler.handler_get_pause())
+                if self._comm['volume']:
+                    self._comm['volume'] = False
+                    _process.stdin.write(
+                        ('volume %.3f\n' % self._handler.handler_get_volume()).encode())
                 for data in select.select(_to_poll, [], [], .2):
                     if _process.stdout.fileno() in data:
                         self._handle_output(
@@ -122,9 +121,9 @@ class player:
                 return
             if elems[0] == "A:":
                 try:
-                    self._handler.update_pos(float(elems[1]), float(elems[4]))
+                    self._handler.handler_update_pos(float(elems[1]), float(elems[4]))
                 except Exception as ex:
-                    print("EXCEPTION: %s", repr(ex))
+                    log.error("EXCEPTION: %s", repr(ex))
             else:
                 log.debug("[mplayer] %s", line)
                 log.debug("[mplayer] %s", str(elems))
@@ -132,12 +131,13 @@ class player:
 
     def __init__(self, context, config):
         #self._backend = player.backend_pygame
-        self._backend = player.backend_mplayer
-
         self._comm = {}
+        self._backend = player.backend_mplayer(self._comm, self)
         self._reset_comm()
         self._config = config
         self._current_file = None
+        self._pause = False
+        self._volume = 1.0
         self._playing = False
         self._stop = False
         self._play_thread = None
@@ -149,8 +149,7 @@ class player:
     def _reset_comm(self):
         self._comm['skip'] = False
         self._comm['pause'] = False
-        self._comm['volup'] = False
-        self._comm['voldown'] = False
+        self._comm['volume'] = False
 
     def set_scheduler(self, scheduler_inst):
         assert hasattr(scheduler, 'get_next')
@@ -162,7 +161,7 @@ class player:
 
     def play(self):
         if self._playing:
-            return False
+            self.resume()
         self._play_thread = threading.Thread(target=self._player_fn)
         self._play_thread.start()
         return True
@@ -185,18 +184,41 @@ class player:
         self._comm['skip'] = True
 
     def pause(self):
+        if self._pause:
+            return
+        self._comm['pause'] = True
+
+    def resume(self):
+        if not self._pause:
+            return
+        self._comm['pause'] = True
+
+    def toggle_pause(self):
         self._comm['pause'] = True
 
     def volume_up(self):
-        self._comm['volup'] = True
+        self._volume += 10
+        if self._volume > 100: self._volume = 100
+        self._comm['volume'] = True
 
     def volume_down(self):
-        self._comm['voldown'] = True
+        self._volume -= 10
+        if self._volume < 0: self._volume = 0
+        self._comm['volume'] = True
 
     def current_track(self):
         return self._current_file
 
-    def update_pos(self, now, total):
+    def handler_get_volume(self) -> float:
+        return self._volume
+
+    def handler_get_pause(self) -> bool:
+        return self._pause
+
+    def handler_set_pause(self, value: bool) -> None:
+        self._pause = value
+
+    def handler_update_pos(self, now, total):
         if now - self._last_pos < 1.:
             return
         self._last_pos = now
@@ -204,6 +226,9 @@ class player:
             'type': 'now_playing',
             'current_pos': str(now),
             'track_length': str(total)})
+
+    def handler_get_filename(self) -> str:
+        return os.path.join(*self._current_file)
 
     def current_pos(self) -> int:
         return self._last_pos
@@ -215,34 +240,26 @@ class player:
         self._notification_socket.send_json({
                 'type': 'hello from player'})
 
-        with self._backend(self._comm, self) as _player:
-            self._playing = True
-            self._stop = False
-            while not self._stop:
-                self._fetch()
-                self._notification_socket.send_json({
-                    'type': 'now_playing',
-                    'current_track': ':'.join(self._current_file)})
+        self._playing = True
+        self._stop = False
+        while not self._stop:
+            self._fetch()
+            self._notification_socket.send_json({
+                'type': 'now_playing',
+                'current_track': ':'.join(self._current_file)})
 
-                log.info('play %s', os.path.join(*self._current_file[1:]))
+            log.info('play %s', os.path.join(*self._current_file[1:]))
 
-                try:
-                    _player.load_file(os.path.join(*self._current_file))
-                except player.file_load_error as ex:
-                    log.error(repr(ex))
-                    time.sleep(3)
-                    continue
+            self._last_pos = 0
+            self._reset_comm()
 
-                self._last_pos = 0
-                self._reset_comm()
+            try:
+                self._backend.blocking_play()
+            except Exception as ex:
+                log.error("an exception occured while playing: '%s'", repr(ex))
+                time.sleep(3)
 
-                try:
-                    _player.blocking_play()
-                except Exception as ex:
-                    log.error("an exception occured while playing: '%s'", repr(ex))
-                    time.sleep(3)
-
-            self._playing = False
+        self._playing = False
 
 class acquirer:
     ''' Takes links and makes them available on the FS. e.g. takes a
@@ -383,8 +400,7 @@ class server:
                 return error.bad_request('not implemented')
 
             elif _command == 'pause':
-                log.info("listener '%s' sent 'pause'", _listener.user_name)
-                self._player.pause()
+                self._player.toggle_pause()
                 return {'type': 'ok'}
 
             elif _command == 'skip':
