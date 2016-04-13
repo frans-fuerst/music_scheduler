@@ -162,6 +162,7 @@ class player:
     def play(self):
         if self._playing:
             self.resume()
+            return
         self._play_thread = threading.Thread(target=self._player_fn)
         self._play_thread.start()
         return True
