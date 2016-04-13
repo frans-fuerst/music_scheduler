@@ -91,9 +91,16 @@ std::string rrplayer_mainwindow::generate_uid() {
 void rrplayer_mainwindow::log_output(
         const std::string       &a_message,
               pal::log::level_t  a_level) {
-    std::string l_message((pal::str::str()
-                           << "0x" << std::hex << std::this_thread::get_id()
-                           << ":  " << a_message));
+    std::string l_message(
+                (pal::str::str()
+                 << ((a_level == pal::log::level_t::CRITICAL) ? "(CC) " :
+                     (a_level == pal::log::level_t::ERROR)    ? "(EE) " :
+                     (a_level == pal::log::level_t::WARNING)  ? "(WW) " :
+                     (a_level == pal::log::level_t::INFO)     ? "(II) " :
+                     (a_level == pal::log::level_t::DEBUG)    ? "(DD) " :
+                     (a_level == pal::log::level_t::TRACE)    ? "(TT) " : "(--)")
+                 // << "0x" << std::hex << std::this_thread::get_id() << ":  "
+                 << a_message));
 #if defined(ANDROID)
     __android_log_print(ANDROID_LOG_INFO, "rrplayer", l_message.c_str());
 #else
