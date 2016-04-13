@@ -67,7 +67,7 @@ if(ANDROID)
         SOVERSION 1
     )
     include(submodule/qt-android-cmake/AddQtAndroidApk.cmake)
-    add_qt_android_apk(rrplayer_android rrplayer NAME rrplayer)
+    add_qt_android_apk(rrplayer_android rrplayer NAME "party player")
 else()
     add_executable(rrplayer
         ${PROJECT_FILES}
