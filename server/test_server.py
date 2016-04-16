@@ -1,34 +1,31 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import server
+import zmq
+import os
+
+CONFIG = {'music_file_pattern':    (".mp3", ".mp4", ".m4a",
+                                     ".ogg", ".opus", ),
+           'input_dirs':            (os.path.dirname(__file__),),
+           'playlist_folder':       './lists',
+           'notification_endpoint': 'inproc://step2',
+           }
 
 def test_player():
     class scheduler_stub:
         def __init__(self):
             pass
-        def _on_next(self):
-            pass
-    p = server.player()
-    p.set_scheduler(scheduler_stub)
-    p.play()
-    
 
-def test_scheduler():
-    class player_stub:
-        def __init__(self):
+        def get_next(self) -> tuple:
             pass
-        def play(self):
-            pass
-    class acquirer_stub:
-        def __init__(self):
-            pass
-        def aquire(self, url):
-            pass
-    s = server.scheduler()
-    s.set_player(player_stub())
-    s.set_acquirer(acquirer_stub())
-    s.play()
+
+    _context = zmq.Context()
+
+    p = server.player(_context, CONFIG)
+    p.set_scheduler(scheduler_stub())
+    p.play()
+
 
 def test_acquirer():
     class scheduler_stub:
@@ -43,5 +40,4 @@ def test_acquirer():
 
 if __name__ == '__main__':
     test_player()
-    test_scheduler()
     test_acquirer()

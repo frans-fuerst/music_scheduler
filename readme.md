@@ -72,7 +72,12 @@ server -> clients (publish)
 * errors
 
 
-requirements
-------------
+requirements - server
+---------------------
+
 * python3
 * mplayer
+
+requirements - server
+---------------------
+* libqt5gui

@@ -12,7 +12,79 @@ import error
 
 class scheduler:
 
-    def __init__(self, config):
+    class rule:
+        def __init__(self, *, line:str=None,
+                     time_stamp:float=time.time(), listener:str=None,
+                     tag_name:str=None, tag_string:str=None,
+                     track_pos:float=None) -> None:
+            if line is not None:
+                _items = tuple((e.strip() for e in line.split(',')))
+                self.time = float(_items[0])
+                self.listener = _items[1]
+                self.tag_name = _items[2]
+                self.tag_string = _items[3].lower() if len(_items) > 3 else None
+                self.track_pos = float(_items[4]) if len(_items) > 4 else None
+            elif time_stamp is not None and tag_name is not None:
+                assert isinstance(time_stamp, float)
+                assert isinstance(listener, str)
+                assert isinstance(tag_name, str)
+                assert isinstance(tag_string, str)
+                assert track_pos is None or isinstance(track_pos, (int, float))
+                self.time = time_stamp
+                self.listener = listener
+                self.tag_name = tag_name
+                self.tag_string = tag_string
+                self.track_pos = float(track_pos) if track_pos else None
+            else:
+                raise Exception("bad arguments for scheduler.rule()")
+
+            self._is_ban_tag = False
+
+            if self.tag_name == 'ban':
+                if self.tag_string is None:
+                    raise Exception("bad arguments for scheduler.rule()")
+                self._is_ban_tag = True
+                self._folder_component = None
+                self._file_component = None
+                if '/' in self.tag_string:
+                    _folder_c = self.tag_string[:self.tag_string.rfind('/')]
+                    _file_c = self.tag_string[self.tag_string.rfind('/') + 1:]
+                    if '.' in _file_c:
+                        self._folder_component = _folder_c
+                        self._file_component = _file_c
+
+                if self._folder_component == '':
+                    self._folder_component = None
+                if self._file_component == '':
+                    self._file_component = None
+
+            self.banned_items = set()
+
+        def to_line(self):
+            return '%.3f, %s, %s, %s, %.2f' % (
+                self.time, self.listener,
+                self.tag_name, self.tag_string,
+                self.track_pos)
+
+        def __str__(self):
+            return 'rule(type="%s", what="%s")' % (self.tag_name, self.tag_string)
+
+        def matches(self, folder, filename):
+            if (self._folder_component is not None or
+                self._file_component is not None):
+                _matching = ((self._folder_component is None or
+                              self._folder_component in folder.lower()) and
+                             (self._file_component is None or
+                              self._file_component in filename.lower()))
+            else:
+                _matching = (self.tag_string in folder.lower() or
+                             self.tag_string in filename.lower())
+            if _matching and self._is_ban_tag:
+                self.banned_items.add((folder, filename))
+            return _matching
+
+
+    def __init__(self, *, config):
         assert 'playlist_folder' in config
         self.count = 0
         self._sources = []
@@ -52,7 +124,7 @@ class scheduler:
         log.info("loaded smartlist '%s' with %d rules",
                  list_name, len(self._rules))
 
-    def add_tag(self, user: str, track: str, pos: int, details: dict):
+    def add_tag(self, listener: str, track: tuple, pos: int, details: dict):
         if 'tag_name' not in details:
             raise error.bad_request('add_tag request does not contain tag_name')
 
@@ -62,12 +134,14 @@ class scheduler:
                 raise error.bad_request('add_tag request does not contain subject')
             _subject = details['subject']
         elif _tag_name == 'upvote':
-            _subject = track
+            _subject = os.path.join(*track[1:])
         else:
             raise error.bad_request('cannot handle tag name "%s"' % _tag_name)
 
         self._dirty = True
-        self._rules.append((time.time(), user, _tag_name, _subject, pos))
+        self._rules.append(scheduler.rule(time_stamp=time.time(), listener=listener,
+                                          tag_name=_tag_name, tag_string=_subject,
+                                          track_pos=pos))
 
         # todo: not needed in production mode but might be useful though
         self._store_list()
@@ -138,22 +212,21 @@ class scheduler:
             time.sleep(1)
             return None  # slow down endless loops
 
-        def passes(filename):
+        def passes(folder, filename):
             for e in self._rules:
-                print(e)
-                if e[2] == 'ban' and e[3] in filename:
+                if e.tag_name == 'ban' and e.matches(folder, filename):
                     return False
             return True
 
         while True:
             _location = random.choice(list(self._folders.keys()))
             _p1, _p2 = self._get_name_components(_location)
-            if not (passes(_p1) and passes(_p2)):
-                log.info('skipped banned location "%s/%s"', _p1, _p2)
-                continue
+            #if not (passes(_p1) and passes(_p2)):
+                #log.info('skipped banned location "%s/%s"', _p1, _p2)
+                #continue
             _file = random.choice(self._folders[_location])
             _f =  self._get_name_component(_file.name_index)
-            if not passes(_f):
+            if not passes(_p1, _f):
                 log.info('skipped banned file "%s/%s"', _p2, _f)
                 continue
             return (_p1, _p2, _f)
@@ -166,8 +239,7 @@ class scheduler:
             self._active_list)
         with open(_path, 'w') as _f:
             for r in self._rules:
-                _f.write('%s, %s, %s, %s\n' % (
-                    str(r[0]), str(r[1]), str(r[2]), str(r[3])))
+                _f.write(r.to_line() + '\n')
         self._dirty = False
 
     def _load_rules(self, list_file):
@@ -177,7 +249,7 @@ class scheduler:
 
         try:
             with open(_path) as _f:
-                return [tuple((e.strip() for e in l.split(','))) for l in _f.readlines()]
+                return [scheduler.rule(line=l) for l in _f.readlines()]
         except FileNotFoundError:
             return []
 
@@ -191,6 +263,12 @@ class scheduler:
     def add_path(self, path:str='.') -> int:
         self._sources.append(path)
         return self._crawl_path(path)
+
+    def debug_check(self):
+        for r in self._rules:
+            log.info("%d items banned by %s", len(r.banned_items), r)
+            for i in r.banned_items:
+                log.info("   %s", i)
 
     def _is_music(self, filename):
         return os.path.splitext(filename.lower())[1] in self._music_pattern
@@ -206,6 +284,10 @@ class scheduler:
         class fileinfo:
             def __init__(self, filename_index):
                 self.name_index = filename_index
+
+            def __repr__(self):
+                return "fileinfo(%d)" % self.name_index
+
         return [fileinfo(self._get_name_component_index(f))
                 for f in files if self._is_music(f)]
 
@@ -232,8 +314,7 @@ class scheduler:
         _path_idx = self._get_name_component_index(_path)
         _result_count = 0
         for _parent, _folders, _files in os.walk(_path):
-            if '.git' in _folders: del _folders['.git']
-            if '.svn' in _folders: del _folders['.svn']
+            _folders[:] = [d for d in _folders if d not in ('.git', '.svn')]
 
             assert _parent.startswith(_path)
             assert _parent == os.path.normpath(_parent)
@@ -246,6 +327,13 @@ class scheduler:
             if not self._has_music(_files):
                 continue
             _music_file_list = self._get_music(_files)
+            for f in _music_file_list:
+                for r in self._rules:
+                    if r.tag_name == 'ban' and r.matches(
+                        self._get_name_component(_relpath_idx),
+                        self._get_name_component(f.name_index)):
+                        pass
+
             self._folders[(_path_idx, _relpath_idx)] = _music_file_list
             _result_count += len(_music_file_list)
             log.debug(_relpath)

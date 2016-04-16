@@ -15,6 +15,7 @@ import error
 import logging
 log = logging.getLogger('server')
 
+SERVER_VERSION = '0.1.4'
 
 ''' design guidelines
     - base components have only non-blocking methods
@@ -69,11 +70,10 @@ class player:
 
     class backend_mplayer:
         def __init__(self, comm, handler):
+            # We try to maintain as little state as possible in this class.
+            # All needed state should be queried from self._handler
             self._comm = comm
             self._handler = handler
-            #self._filename = None
-            #self._pause = False
-            #self._volume = 100  # todo: make configurable
 
         def __enter__(self):
             return self
@@ -85,7 +85,8 @@ class player:
             import subprocess
             import select
             self._comm['skip'] = False
-            _process = subprocess.Popen(args=['mplayer', '-slave', '-nolirc',
+            _process = subprocess.Popen(
+                args=['mplayer', '-slave', '-nolirc',
                                               self._handler.handler_get_filename()],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 stdin=subprocess.PIPE, bufsize=0)
@@ -130,7 +131,6 @@ class player:
 
 
     def __init__(self, context, config):
-        #self._backend = player.backend_pygame
         self._comm = {}
         self._backend = player.backend_mplayer(self._comm, self)
         self._reset_comm()
@@ -291,7 +291,7 @@ class server:
         self._application_exit_request = False
         self._context = zmq.Context()
         self._player = player(self._context, config)
-        self._scheduler = scheduler(config)
+        self._scheduler = scheduler(config=config)
         self._acquirer = acquirer()
         self._player.set_scheduler(self._scheduler)
 
@@ -316,6 +316,7 @@ class server:
             log.info('%d files', _count)
         _t = time.time() - _t
         log.info('found a total of %d music tracks in %.1f sec', _full_count, _t)
+        self._scheduler.debug_check()
 
         _req_socket = self._context.socket(zmq.ROUTER)
         _req_socket.bind('tcp://*:9876')
@@ -379,7 +380,7 @@ class server:
 
                 return  {'type': 'ok',
                          'notifications':  '9875',
-                         'server_version': '0.1.4',
+                         'server_version': SERVER_VERSION,
                          'current_track': (
                              ':'.join(self._player.current_track())
                              if self._player.current_track() is not None
