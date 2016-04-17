@@ -19,6 +19,8 @@ class scheduler:
                      track_pos:float=None) -> None:
             if line is not None:
                 _items = tuple((e.strip() for e in line.split(',')))
+                if not len(_items) == 5:
+                    log.warning("ignore misspelled rule: '%s'", line)
                 self.time = float(_items[0])
                 self.listener = _items[1]
                 self.tag_name = _items[2]
@@ -266,6 +268,8 @@ class scheduler:
 
     def debug_check(self):
         for r in self._rules:
+            if r.tag_name != 'ban':
+                continue
             log.info("%d items banned by %s", len(r.banned_items), r)
             for i in r.banned_items:
                 log.info("   %s", i)
