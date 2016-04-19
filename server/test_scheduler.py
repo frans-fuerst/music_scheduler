@@ -29,6 +29,11 @@ def test_rule():
         tag_string='reykjavik/nu - man o to (original mix).wmv-ksmebecxzya.m4a')
     assert not r4.matches('reykjavik', 'Worakls - From Now On-1fcOQ6YbL9Q.opus')
 
+    r5 = scheduler.rule(
+        listener='frans', tag_name='ban',
+        tag_string='reykjavik')
+    assert r5.matches('reykjavik', 'nu - man o to (original mix).wmv-ksmebecxzya.m4a')
+
 
 def test_scheduler():
 

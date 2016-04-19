@@ -1,5 +1,7 @@
-partyplayer - respectful remote player
-======================================
+party music player
+==================
+
+
 
 desired features
 ----------------

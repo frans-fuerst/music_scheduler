@@ -28,5 +28,5 @@ struct config_t {
     }
 
   private:
-    std::string m_device_config_filename = "~/.rrplayer/client_config";
+    std::string m_device_config_filename = "~/.pmp/client_config";
 };

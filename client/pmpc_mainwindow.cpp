@@ -1,5 +1,5 @@
-#include "./rrplayer_mainwindow.h"
-#include "./rrplayer_client.h"
+#include "./pmpc_mainwindow.h"
+#include "./pmpc_client.h"
 #include "./errors.h"
 
 #include <pal/pal.h>
@@ -23,12 +23,12 @@
 #include <android/log.h>
 #endif
 
-rrplayer_mainwindow::rrplayer_mainwindow(
+pmpc_mainwindow::pmpc_mainwindow(
         QWidget *a_parent)
     : QMainWindow(a_parent)
     , pal::log::logger(
           std::bind(
-              &rrplayer_mainwindow::log_output, this,
+              &pmpc_mainwindow::log_output, this,
               std::placeholders::_1,
               std::placeholders::_2))
     , m_client(*this, *this)
@@ -60,7 +60,7 @@ rrplayer_mainwindow::rrplayer_mainwindow(
     m_txt_search_or_add->setInputMethodHints(Qt::ImhNoPredictiveText);
 
     resize(700, 700);
-    setWindowTitle("rrplayer");
+    setWindowTitle("party music player");
 
     log_i() << "version: "  << m_client.version;
     log_i() << "pwd:     '" << QApplication::applicationDirPath() << "'";
@@ -74,10 +74,10 @@ rrplayer_mainwindow::rrplayer_mainwindow(
     // l_pb_add->setFixedSize(l_pbsize);
 }
 
-rrplayer_mainwindow::~rrplayer_mainwindow() {
+pmpc_mainwindow::~pmpc_mainwindow() {
 }
 
-std::string rrplayer_mainwindow::generate_uid() {
+std::string pmpc_mainwindow::generate_uid() {
     std::string l_return;
     l_return.reserve(16);
     l_return.resize(16);
@@ -88,7 +88,7 @@ std::string rrplayer_mainwindow::generate_uid() {
     return l_return;
 }
 
-void rrplayer_mainwindow::log_output(
+void pmpc_mainwindow::log_output(
         const std::string       &a_message,
               pal::log::level_t  a_level) {
     std::string l_message(
@@ -102,7 +102,7 @@ void rrplayer_mainwindow::log_output(
                  // << "0x" << std::hex << std::this_thread::get_id() << ":  "
                  << a_message));
 #if defined(ANDROID)
-    __android_log_print(ANDROID_LOG_INFO, "rrplayer", l_message.c_str());
+    __android_log_print(ANDROID_LOG_INFO, "pmpc", l_message.c_str());
 #else
     std::cout << l_message << std::endl;
 #endif
@@ -112,7 +112,7 @@ void rrplayer_mainwindow::log_output(
                 Q_ARG(QString, QString::fromStdString(l_message.c_str())));
 }
 
-void rrplayer_mainwindow::add_log_line(const QString &a_msg) {
+void pmpc_mainwindow::add_log_line(const QString &a_msg) {
     if (!m_lst_messages) {
         return;
     }
@@ -120,14 +120,14 @@ void rrplayer_mainwindow::add_log_line(const QString &a_msg) {
     m_lst_messages->scrollToBottom();
 }
 
-void rrplayer_mainwindow::server_message(
+void pmpc_mainwindow::server_message(
         const std::string &a_msg) {
     QMetaObject::invokeMethod(
                 this, "on_server_message", Qt::QueuedConnection,
                 Q_ARG(QString, QString::fromStdString(a_msg)));
 }
 
-void rrplayer_mainwindow::on_server_message(const QString &a_msg) {
+void pmpc_mainwindow::on_server_message(const QString &a_msg) {
     auto l_values(pal::json::to_map(a_msg.toStdString()));
 
     //log_d() << "message:";
@@ -159,7 +159,7 @@ void rrplayer_mainwindow::on_server_message(const QString &a_msg) {
     }
 }
 
-bool rrplayer_mainwindow::event(QEvent *event) {
+bool pmpc_mainwindow::event(QEvent *event) {
     if (event->type() == QEvent::WindowActivate) {
         if (!m_initialized) {
             on_initialized();
@@ -168,7 +168,7 @@ bool rrplayer_mainwindow::event(QEvent *event) {
     return QMainWindow::event(event);
 }
 
-void rrplayer_mainwindow::on_initialized() {
+void pmpc_mainwindow::on_initialized() {
     m_initialized = true;
     try {
         m_config.load();
@@ -199,7 +199,7 @@ void rrplayer_mainwindow::on_initialized() {
     }
 }
 
-void rrplayer_mainwindow::one_connection_attempt() {
+void pmpc_mainwindow::one_connection_attempt() {
     if (m_client.is_connected()) {
         return;
     }
@@ -210,7 +210,7 @@ void rrplayer_mainwindow::one_connection_attempt() {
             log_i() << "success!";
             m_lbl_host->setText(QString::fromStdString(l_hostname));
             return;
-        } catch (rrp::error &e) {
+        } catch (pmp::error &e) {
             log_w() << "failure: '" << e.what() << "'";
         }
     }
@@ -218,15 +218,15 @@ void rrplayer_mainwindow::one_connection_attempt() {
     log_i() << "no known host reachable";
 }
 
-void rrplayer_mainwindow::on_txt_search_or_add_textChanged(
+void pmpc_mainwindow::on_txt_search_or_add_textChanged(
         const QString &text) {
 
     try {
         search_on_server(text.toStdString());
-    } catch (rrp::timeout &) {}
+    } catch (pmp::timeout &) {}
 }
 
-void rrplayer_mainwindow::search_on_server(
+void pmpc_mainwindow::search_on_server(
         const std::string &a_text) {
 
     // log_i() << (a_text != "" ? a_text : "empty search text!");
@@ -258,63 +258,63 @@ void rrplayer_mainwindow::search_on_server(
     update();
 }
 
-void rrplayer_mainwindow::on_txt_search_or_add_returnPressed() {
+void pmpc_mainwindow::on_txt_search_or_add_returnPressed() {
     log_i() << "enter";
 }
 
-void rrplayer_mainwindow::on_pb_play_clicked() {
+void pmpc_mainwindow::on_pb_play_clicked() {
     log_i() << "play";
     try {
         m_client.request({{"type", "play"}});
-    } catch (rrp::error &ex) {
+    } catch (pmp::error &ex) {
         log_e() << "got error '" << ex.what() << "'";
     }
 }
 
-void rrplayer_mainwindow::on_pb_pause_clicked() {
+void pmpc_mainwindow::on_pb_pause_clicked() {
     log_i() << "pause";
     try {
         m_client.request({{"type", "pause"}});
-    } catch (rrp::error &ex) {
+    } catch (pmp::error &ex) {
         log_e() << "got error '" << ex.what() << "'";
     }
 }
 
-void rrplayer_mainwindow::on_pb_stop_clicked() {
+void pmpc_mainwindow::on_pb_stop_clicked() {
     log_i() << "stop";
     try {
         m_client.request({{"type", "stop"}});
-    } catch (rrp::error &ex) {
+    } catch (pmp::error &ex) {
         log_e() << "got error '" << ex.what() << "'";
     }
 }
 
-void rrplayer_mainwindow::on_pb_skip_clicked() {
+void pmpc_mainwindow::on_pb_skip_clicked() {
     log_i() << "skip";
     try {
         m_client.request({{"type", "skip"}});
-    } catch (rrp::error &ex) {
+    } catch (pmp::error &ex) {
         log_e() << "got error '" << ex.what() << "'";
     }
 }
 
-void rrplayer_mainwindow::on_pb_upvote_clicked() {
+void pmpc_mainwindow::on_pb_upvote_clicked() {
     log_i() << "upvote";
     try {
         m_client.request({{"type", "add_tag"},
                           {"tag_name", "upvote"}});
-    } catch (rrp::error &ex) {
+    } catch (pmp::error &ex) {
         log_e() << "got error '" << ex.what() << "'";
     }
 }
 
-void rrplayer_mainwindow::on_pb_ban_clicked() {
+void pmpc_mainwindow::on_pb_ban_clicked() {
     log_i() << "ban";
     m_frm_ban->setVisible(true);
     m_txt_ban_substring->setText(QString::fromStdString(m_current_track));
 }
 
-void rrplayer_mainwindow::on_txt_ban_substring_selectionChanged() {
+void pmpc_mainwindow::on_txt_ban_substring_selectionChanged() {
     auto l_current_selection(m_txt_ban_substring->selectedText());
     if (l_current_selection == "") {
         return;
@@ -322,11 +322,11 @@ void rrplayer_mainwindow::on_txt_ban_substring_selectionChanged() {
     m_selected_ban_substring = l_current_selection;
 }
 
-void rrplayer_mainwindow::on_pb_ban_crop_clicked() {
+void pmpc_mainwindow::on_pb_ban_crop_clicked() {
     m_txt_ban_substring->setText(m_selected_ban_substring);
 }
 
-void rrplayer_mainwindow::on_pb_ban_path_clicked() {
+void pmpc_mainwindow::on_pb_ban_path_clicked() {
     std::vector<std::string> l_components(pal::str::split(m_current_track, '/'));
     if (l_components.size() < 1) {
         return;
@@ -336,7 +336,7 @@ void rrplayer_mainwindow::on_pb_ban_path_clicked() {
                                      boost::algorithm::join(l_components, "/")));
 }
 
-void rrplayer_mainwindow::on_pb_ban_folder_clicked() {
+void pmpc_mainwindow::on_pb_ban_folder_clicked() {
     std::vector<std::string> l_components(pal::str::split(m_current_track, '/'));
     if (l_components.size() < 2) {
         return;
@@ -344,12 +344,12 @@ void rrplayer_mainwindow::on_pb_ban_folder_clicked() {
     m_txt_ban_substring->setText(QString::fromStdString(*(l_components.rbegin() + 1)));
 }
 
-void rrplayer_mainwindow::on_pb_ban_file_clicked() {
+void pmpc_mainwindow::on_pb_ban_file_clicked() {
     std::vector<std::string> l_components(pal::str::split(m_current_track, '/'));
     m_txt_ban_substring->setText(QString::fromStdString(*l_components.rbegin()));
 }
 
-void rrplayer_mainwindow::on_pb_ban_ok_clicked() {
+void pmpc_mainwindow::on_pb_ban_ok_clicked() {
     log_i() << "ban/ok";
     m_frm_ban->setVisible(false);
 
@@ -357,39 +357,39 @@ void rrplayer_mainwindow::on_pb_ban_ok_clicked() {
         m_client.request({{"type", "add_tag"},
                           {"tag_name", "ban"},
                           {"subject", m_txt_ban_substring->text().toStdString()}});
-    } catch (rrp::error &ex) {
+    } catch (pmp::error &ex) {
         log_e() << "got error '" << ex.what() << "'";
     }
 }
 
-void rrplayer_mainwindow::on_pb_ban_cancel_clicked() {
+void pmpc_mainwindow::on_pb_ban_cancel_clicked() {
     log_i() << "ban/cancel";
     m_frm_ban->setVisible(false);
 }
 
-void rrplayer_mainwindow::on_pb_add_clicked() {
+void pmpc_mainwindow::on_pb_add_clicked() {
     log_i() << "add";
 }
 
-void rrplayer_mainwindow::on_pb_volup_clicked() {
+void pmpc_mainwindow::on_pb_volup_clicked() {
     log_i() << "volume up";
     try {
         m_client.request({{"type", "volup"}});
-    } catch (rrp::error &ex) {
+    } catch (pmp::error &ex) {
         log_e() << "got error '" << ex.what() << "'";
     }
 }
 
-void rrplayer_mainwindow::on_pb_voldown_clicked() {
+void pmpc_mainwindow::on_pb_voldown_clicked() {
     log_i() << "volume down";
     try {
         m_client.request({{"type", "voldown"}});
-    } catch (rrp::error &ex) {
+    } catch (pmp::error &ex) {
         log_e() << "got error '" << ex.what() << "'";
     }
 }
 
-void rrplayer_mainwindow::on_pb_config_clicked() {
+void pmpc_mainwindow::on_pb_config_clicked() {
     log_i() << "config";
     m_txt_hostnames->setText(QString::fromStdString(
                                  boost::algorithm::join(m_config.device.hostnames, ",")));
@@ -399,7 +399,7 @@ void rrplayer_mainwindow::on_pb_config_clicked() {
     m_frm_credentials->setVisible(true);
 }
 
-void rrplayer_mainwindow::on_pb_connect_clicked() {
+void pmpc_mainwindow::on_pb_connect_clicked() {
     log_i() << "connect";
 
     m_config.account.user_name = m_txt_username->text().toStdString();
@@ -415,7 +415,7 @@ void rrplayer_mainwindow::on_pb_connect_clicked() {
     }
 }
 
-void rrplayer_mainwindow::on_lst_result_itemClicked(
+void pmpc_mainwindow::on_lst_result_itemClicked(
         QListWidgetItem *a_item) {
     int l_index(m_lst_result->selectionModel()->currentIndex().row());
     std::string l_item(a_item->text().toStdString());
@@ -427,18 +427,18 @@ void rrplayer_mainwindow::on_lst_result_itemClicked(
                       {"item", l_search_identifier}});
 }
 
-QWidget * rrplayer_mainwindow::loadUiFile() {
+QWidget * pmpc_mainwindow::loadUiFile() {
     QFile l_file;
-    l_file.setFileName("rrplayer.ui");
+    l_file.setFileName("pmpc.ui");
     if(!l_file.exists()) {
-        l_file.setFileName(":/rrplayer.ui");
+        l_file.setFileName(":/pmpc.ui");
     }
     l_file.open(QFile::ReadOnly);
     QUiLoader l_loader;
     return l_loader.load(&l_file, this);
 }
 
-void rrplayer_mainwindow::closeEvent(QCloseEvent *event) {
+void pmpc_mainwindow::closeEvent(QCloseEvent *event) {
     // todo: send goodbye
 }
 
@@ -462,7 +462,7 @@ void config_t::save() {
         pal::fs::mk_base_dir(l_filename);
         std::ofstream l_config_file(l_filename);
         if (!l_config_file.is_open()) {
-            throw rrp::io_error("cannot open local config file for writing!");
+            throw pmp::io_error("cannot open local config file for writing!");
         }
         l_config_file << "{" << std::endl;
         l_config_file << "    " << "\"hosts\": \""
@@ -477,7 +477,7 @@ void config_t::save() {
         pal::fs::mk_base_dir(l_account_config_file);
         std::ofstream l_config_file(l_account_config_file);
         if (!l_config_file.is_open()) {
-            throw rrp::io_error("cannot open account config file for writing!");
+            throw pmp::io_error("cannot open account config file for writing!");
         }
         l_config_file << "{" << std::endl;
         l_config_file << "    " << "\"user_id\": \""

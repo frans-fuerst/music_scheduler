@@ -9,10 +9,10 @@
 #include <thread>
 #include <vector>
 
-class rrp_client {
+class pmp_client {
 
   public:
-    const std::string version = "0.1.4";
+    const std::string version = "0.1.5";
     typedef std::map<std::string, std::string> kv_map_t;
 
     class handler {
@@ -24,7 +24,7 @@ class rrp_client {
         virtual ~handler() {}
     };
 
-    rrp_client(handler           &handler,
+    pmp_client(handler           &handler,
                pal::log::logger  &logger)
         : logger(logger)
         , m_handler(handler)
@@ -33,7 +33,7 @@ class rrp_client {
 
     }
 
-    ~rrp_client() {
+    ~pmp_client() {
         shutdown();
     }
 
@@ -64,7 +64,7 @@ class rrp_client {
         zmq::message_t l_msg_request;
         try {
             if (!socket.recv(&l_msg_request)) {
-                throw rrp::timeout();
+                throw pmp::timeout();
             }
         } catch(zmq::error_t &ex) {
             logger.log_e() << "fatal: could not recv(): '" << ex.what() << "'";
@@ -110,7 +110,7 @@ class rrp_client {
         m_connected = true;
 
         m_subscriber_thread = std::thread(
-                    &rrp_client::subscriber_thread_fn, this,
+                    &pmp_client::subscriber_thread_fn, this,
                     hostname, 9875);
 
         //        self._req_poller = zmq.Poller()
@@ -172,7 +172,7 @@ class rrp_client {
             try {
                 auto l_message_str(recv_str(*l_sub_socket));
                 m_handler.server_message(l_message_str);
-            } catch (rrp::timeout &) {}
+            } catch (pmp::timeout &) {}
         }
 //            if not self._running:
 //                break
@@ -193,7 +193,7 @@ class rrp_client {
                   bool           throw_on_timeout) {
 
         if (!m_connected) {
-            throw rrp::invalid_state("not connected");
+            throw pmp::invalid_state("not connected");
         }
         send_kv(socket, data);
         //        while True:
@@ -204,7 +204,7 @@ class rrp_client {
         //        reply = self._req_socket.recv_json()
         try {
             return handle_response(pal::json::to_map(recv_str(*m_req_socket)));
-        } catch (rrp::timeout &ex) {
+        } catch (pmp::timeout &ex) {
             if (throw_on_timeout) {
                 throw;
             } else {
@@ -229,8 +229,8 @@ class rrp_client {
     }
 
   private:
-    rrp_client(const rrp_client &) = delete;
-    rrp_client & operator =(const rrp_client &) = delete;
+    pmp_client(const pmp_client &) = delete;
+    pmp_client & operator =(const pmp_client &) = delete;
 
     pal::log::logger               &logger;
     handler                        &m_handler;

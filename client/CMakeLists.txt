@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.1)
 
-project(rrplayer)
+project(pmp_client)
 
 set (CMAKE_CXX_STANDARD 11)
 
@@ -42,11 +42,11 @@ file(GLOB PROJECT_FILES
     ../todo.md
     errors.h
     configuration.h
-    rrplayer_mainwindow.cpp
-    rrplayer_mainwindow.h
-    rrplayer_client.h
-    rrplayer_client.cpp
-    rrplayer_main.cpp
+    pmpc_mainwindow.cpp
+    pmpc_mainwindow.h
+    pmpc_client.h
+    pmpc_client.cpp
+    pmpc_main.cpp
 )
 add_subdirectory(submodule/pal)
 
@@ -54,37 +54,37 @@ set(ZMQ_BUILD_TESTS OFF)
 add_subdirectory(submodule/libzmq)
 
 if(ANDROID)
-    add_library(rrplayer SHARED
+    add_library(pmp_client SHARED
         ${PROJECT_FILES}
         ${RESOURCES}
     )
-    target_link_libraries(rrplayer
+    target_link_libraries(pmp_client
         libzmq-static
         log
     )
-    set_target_properties(rrplayer PROPERTIES
+    set_target_properties(pmp_client PROPERTIES
         VERSION 0.1.0
         SOVERSION 1
     )
     include(submodule/qt-android-cmake/AddQtAndroidApk.cmake)
-    add_qt_android_apk(rrplayer_android rrplayer NAME "party player")
+    add_qt_android_apk(pmp_client_android pmp_client NAME "party player")
 else()
-    add_executable(rrplayer
+    add_executable(pmp_client
         ${PROJECT_FILES}
         ${RESOURCES}
     )
-    target_link_libraries(rrplayer
+    target_link_libraries(pmp_client
         libzmq
     )
 endif()
 
-target_include_directories(rrplayer
+target_include_directories(pmp_client
     SYSTEM PRIVATE
         submodule/cppzmq
         submodule/libzmq/include
 )
 
-target_link_libraries(rrplayer
+target_link_libraries(pmp_client
     Qt5::Widgets
     Qt5::UiTools
     pal_qt5_s

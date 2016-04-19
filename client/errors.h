@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 
-namespace rrp {
+namespace pmp {
 
 struct error : public std::runtime_error {
     explicit error(const std::string &message) : std::runtime_error(message) {}

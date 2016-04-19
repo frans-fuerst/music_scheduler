@@ -1,7 +1,7 @@
 #pragma once
 
 #include <pal/log.h>
-#include "./rrplayer_client.h"
+#include "./pmpc_client.h"
 #include "./configuration.h"
 
 #include <vector>
@@ -18,14 +18,14 @@ class QScrollBar;
 class QFrame;
 
 
-class rrplayer_mainwindow
+class pmpc_mainwindow
         : public QMainWindow
         , private pal::log::logger
-        , private rrp_client::handler {
+        , private pmp_client::handler {
 
     Q_OBJECT
 
-    rrp_client                  m_client;
+    pmp_client                  m_client;
     std::string                 m_current_track = "";
     QString                     m_selected_ban_substring = "";
     config_t                    m_config;
@@ -47,10 +47,10 @@ class rrplayer_mainwindow
     QListWidget *m_lst_result = nullptr;
 
 public:
-    explicit rrplayer_mainwindow(QWidget *parent = 0);
-    virtual ~rrplayer_mainwindow();
-    rrplayer_mainwindow(const rrplayer_mainwindow &) = delete;
-    rrplayer_mainwindow & operator=(const rrplayer_mainwindow &) = delete;
+    explicit pmpc_mainwindow(QWidget *parent = 0);
+    virtual ~pmpc_mainwindow();
+    pmpc_mainwindow(const pmpc_mainwindow &) = delete;
+    pmpc_mainwindow & operator=(const pmpc_mainwindow &) = delete;
 
 private:
     void log_output(
