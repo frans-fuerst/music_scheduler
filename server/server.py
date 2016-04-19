@@ -9,6 +9,11 @@ import time
 import argparse
 import json
 
+try:
+    from espeak import espeak
+except ImportError:
+    espeak = None
+
 from scheduler import scheduler
 import error
 
@@ -377,6 +382,9 @@ class server:
 
                 _listener.user_id = request['user_id']
                 _listener.user_name = request['user_name']
+
+                if espeak is not None:
+                    espeak.synth("hello %s" % _listener.user_name)
 
                 return  {'type': 'ok',
                          'notifications':  '9875',
