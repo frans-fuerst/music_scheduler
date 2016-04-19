@@ -497,24 +497,24 @@ def main():
                                         ".ogg", ".opus", ),
               'input_dirs':            (os.path.dirname(__file__),),
               'notification_endpoint': 'inproc://step2',
-              'playlist_folder':       '~/.rrplayer/lists'
+              'playlist_folder':       '~/.pmp/lists'
               }
     try:
         config.update(
             json.load(
-                open(os.path.expanduser('~/.rrplayer/rrplayerrc'))))
+                open(os.path.expanduser('~/.pmp/pmprc'))))
     except FileNotFoundError:
         try:
-            os.makedirs(os.path.expanduser('~/.rrplayer'))
+            os.makedirs(os.path.expanduser('~/.pmp'))
         except FileExistsError:
             pass
-        with open(os.path.expanduser('~/.rrplayer/rrplayerrc'), 'w') as f:
+        with open(os.path.expanduser('~/.pmp/pmprc'), 'w') as f:
             f.write('{\n')
             f.write('    "input_dirs":            ["~/Music"],\n')
-            f.write('    "playlist_folder":       "~/.rrplayer/lists"\n')
+            f.write('    "playlist_folder":       "~/.pmp/lists"\n')
             f.write('}\n')
         log.info("config file could not be found - I've created one for you at "
-                 "~/.rrplayer/rrplayerrc")
+                 "~/.pmp/pmprc")
 
     server(config).run()
 
