@@ -24,6 +24,7 @@ def test_rule():
                         tag_name='ban', tag_string='some/path')
     assert r3._folder_component is None and r3._file_component is None
     assert r3.tag_string == 'some/path'
+
     r4 = scheduler.rule(
         listener='frans', tag_name='ban',
         tag_string='reykjavik/nu - man o to (original mix).wmv-ksmebecxzya.m4a')
@@ -31,8 +32,9 @@ def test_rule():
 
     r5 = scheduler.rule(
         listener='frans', tag_name='ban',
-        tag_string='reykjavik')
-    assert r5.matches('reykjavik', 'nu - man o to (original mix).wmv-ksmebecxzya.m4a')
+        tag_string='WORKFLOW')
+    assert r5.matches('WORKFLOW/fresh_moods [Elektrolux]/love. death. angels',
+                          'fresh moods-love, death, angels-07-one two.mp3')
 
 
 def test_scheduler():

@@ -35,7 +35,7 @@ class scheduler:
                 self.time = time_stamp
                 self.listener = listener
                 self.tag_name = tag_name
-                self.tag_string = tag_string
+                self.tag_string = tag_string.lower()
                 self.track_pos = float(track_pos) if track_pos else None
             else:
                 raise Exception("bad arguments for scheduler.rule()")
