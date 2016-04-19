@@ -230,7 +230,7 @@ class scheduler:
                 #continue
             _file = random.choice(self._folders[_location])
             _f =  self._get_name_component(_file.name_index)
-            if not passes(_p1, _f):
+            if not passes(_p2, _f):
                 log.info('skipped banned file "%s/%s"', _p2, _f)
                 continue
             return (_p1, _p2, _f)
