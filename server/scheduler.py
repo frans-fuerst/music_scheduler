@@ -217,7 +217,9 @@ class scheduler:
         def passes(folder, filename):
             for e in self._rules:
                 if e.tag_name == 'ban' and e.matches(folder, filename):
+                    log.info('skip banned item %s', (folder, filename))
                     return False
+            log.info('accept item: %s', (folder, filename))
             return True
 
         while True:
