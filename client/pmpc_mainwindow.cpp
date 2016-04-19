@@ -64,6 +64,7 @@ pmpc_mainwindow::pmpc_mainwindow(
 
     log_i() << "version: "  << m_client.version;
     log_i() << "pwd:     '" << QApplication::applicationDirPath() << "'";
+    log_i() << "home:    '" << pal::fs::expanduser("~") << "'";
 
     QMetaObject::connectSlotsByName(this);
 
