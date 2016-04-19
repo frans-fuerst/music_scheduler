@@ -67,7 +67,7 @@ if(ANDROID)
         SOVERSION 1
     )
     include(submodule/qt-android-cmake/AddQtAndroidApk.cmake)
-    add_qt_android_apk(pmp_client_android pmp_client NAME "party player")
+    add_qt_android_apk(pmp_client_android pmp_client NAME "party music player")
 else()
     add_executable(pmp_client
         ${PROJECT_FILES}

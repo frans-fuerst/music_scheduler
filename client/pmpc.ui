@@ -26,14 +26,14 @@
          <property name="font">
           <font>
            <family>DejaVu Sans</family>
-           <pointsize>22</pointsize>
+           <pointsize>20</pointsize>
            <weight>75</weight>
            <italic>true</italic>
            <bold>true</bold>
           </font>
          </property>
          <property name="text">
-          <string>party player</string>
+          <string>party music player</string>
          </property>
         </widget>
        </item>
