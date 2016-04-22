@@ -14,8 +14,9 @@ class QLabel;
 class QEvent;
 class QCloseEvent;
 class QListWidgetItem;
-class QScrollBar;
+class QSlider;
 class QFrame;
+class QDial;
 
 
 class pmpc_mainwindow
@@ -36,7 +37,7 @@ class pmpc_mainwindow
     QLabel      *m_lbl_current_track = nullptr;
     QLabel      *m_lbl_current_track_location = nullptr;
     QLabel      *m_lbl_host = nullptr;
-    QScrollBar  *m_sb_position = nullptr;
+    QSlider     *m_hs_position = nullptr;
     QFrame      *m_frm_ban = nullptr;
     QFrame      *m_frm_search_result = nullptr;
     QLineEdit   *m_txt_ban_substring = nullptr;
@@ -45,6 +46,7 @@ class pmpc_mainwindow
     QFrame      *m_frm_credentials = nullptr;
     QLineEdit   *m_txt_search_or_add = nullptr;
     QListWidget *m_lst_result = nullptr;
+    QDial       *m_d_volume = nullptr;
 
 public:
     explicit pmpc_mainwindow(QWidget *parent = 0);
@@ -91,4 +93,6 @@ private slots:
     void on_txt_search_or_add_textChanged(const QString &text);
     void on_txt_search_or_add_returnPressed();
     void on_lst_result_itemClicked(QListWidgetItem *);
+    void on_hs_position_valueChanged(int value);
+    void on_d_volume_valueChanged(int value);
 };

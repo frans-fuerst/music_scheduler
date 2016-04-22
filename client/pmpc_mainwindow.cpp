@@ -9,6 +9,8 @@
 
 #include <QString>
 #include <QPushButton>
+#include <QSlider>
+#include <QDial>
 #include <QListWidget>
 #include <QTextEdit>
 #include <QtUiTools>
@@ -41,7 +43,7 @@ pmpc_mainwindow::pmpc_mainwindow(
     m_lbl_current_track = l_ui_widget->findChild<QLabel*>("lbl_current_track");
     m_lbl_current_track_location = l_ui_widget->findChild<QLabel*>("lbl_current_track_location");
     m_lbl_host = l_ui_widget->findChild<QLabel*>("lbl_host");
-    m_sb_position = l_ui_widget->findChild<QScrollBar*>("sb_position");
+    m_hs_position = l_ui_widget->findChild<QSlider*>("hs_position");
     m_txt_ban_substring = l_ui_widget->findChild<QLineEdit*>("txt_ban_substring");
     m_frm_ban = l_ui_widget->findChild<QFrame*>("frm_ban");
     m_frm_search_result = l_ui_widget->findChild<QFrame*>("frm_search_result");
@@ -50,6 +52,7 @@ pmpc_mainwindow::pmpc_mainwindow(
     m_txt_hostnames = l_ui_widget->findChild<QLineEdit*>("txt_hostnames");
     m_lst_result = l_ui_widget->findChild<QListWidget*>("lst_result");
     m_txt_search_or_add = l_ui_widget->findChild<QLineEdit*>("txt_search_or_add");
+    m_d_volume = l_ui_widget->findChild<QDial*>("d_volume");
 
     m_frm_ban->setVisible(false);
     m_frm_search_result->setVisible(false);
@@ -149,11 +152,19 @@ void pmpc_mainwindow::on_server_message(const QString &a_msg) {
                                 + l_current_track_components[2];
             }
         } else if (p.first == "track_length") {
-            m_sb_position->setMaximum(static_cast<int>(
+            m_hs_position->setMaximum(static_cast<int>(
                 QString::fromStdString(p.second).toFloat()));
         } else if (p.first == "current_pos") {
-            m_sb_position->setValue(static_cast<int>(
+            auto l_previous(m_hs_position->blockSignals(true));
+            m_hs_position->setValue(static_cast<int>(
                 QString::fromStdString(p.second).toFloat()));
+            m_hs_position->blockSignals(l_previous);
+        } else if (p.first == "volume") {
+            auto l_previous(m_d_volume->blockSignals(true));
+            m_d_volume->setValue(
+                        static_cast<int>(
+                            QString::fromStdString(p.second).toFloat() * 100));
+            m_d_volume->blockSignals(l_previous);
         } else {
             log_d() << "   " << p.first << ": " << p.second;
         }
@@ -426,6 +437,18 @@ void pmpc_mainwindow::on_lst_result_itemClicked(
     m_txt_search_or_add->setText("");
     m_client.request({{"type", "schedule"},
                       {"item", l_search_identifier}});
+}
+
+void pmpc_mainwindow::on_hs_position_valueChanged(int value) {
+    log_i() << "seek to position " << static_cast<int>(value / 60) << ":" << value % 60;
+    m_client.request({{"type", "seek"},
+                      {"position", pal::str::str() << m_hs_position->value()}});
+}
+
+void pmpc_mainwindow::on_d_volume_valueChanged(int value) {
+    log_i() << "change volume to " << value << "%";
+    m_client.request({{"type", "set_volume"},
+                      {"value", pal::str::str() << (m_d_volume->value() / 100.)}});
 }
 
 QWidget * pmpc_mainwindow::loadUiFile() {

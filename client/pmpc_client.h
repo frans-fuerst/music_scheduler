@@ -12,7 +12,7 @@
 class pmp_client {
 
   public:
-    const std::string version = "0.1.5";
+    const std::string version = "0.1.6";
     typedef std::map<std::string, std::string> kv_map_t;
 
     class handler {

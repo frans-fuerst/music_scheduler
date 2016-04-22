@@ -20,7 +20,7 @@ import error
 import logging
 log = logging.getLogger('server')
 
-SERVER_VERSION = '0.1.4'
+SERVER_VERSION = '0.1.6'
 
 ''' design guidelines
     - base components have only non-blocking methods
@@ -105,8 +105,15 @@ class player:
                         not self._handler.handler_get_pause())
                 if self._comm['volume']:
                     self._comm['volume'] = False
+                    x = self._handler.handler_get_volume()
+                    x = 'volume %d 1\n' % (self._handler.handler_get_volume() * 100)
+                    print(x)
                     _process.stdin.write(
-                        ('volume %.3f\n' % self._handler.handler_get_volume()).encode())
+                        ('volume %d 1\n' % (self._handler.handler_get_volume() * 100)).encode())
+                if self._comm['seek']:
+                    self._comm['seek'] = False
+                    _process.stdin.write(
+                        ('seek %d 2\n' % self._handler._seek_position).encode())
                 for data in select.select(_to_poll, [], [], .2):
                     if _process.stdout.fileno() in data:
                         self._handle_output(
@@ -143,6 +150,7 @@ class player:
         self._current_file = None
         self._pause = False
         self._volume = 1.0
+        self._seek_position = 0
         self._playing = False
         self._stop = False
         self._play_thread = None
@@ -155,6 +163,7 @@ class player:
         self._comm['skip'] = False
         self._comm['pause'] = False
         self._comm['volume'] = False
+        self._comm['seek'] = False
 
     def set_scheduler(self, scheduler_inst):
         assert hasattr(scheduler, 'get_next')
@@ -203,14 +212,27 @@ class player:
         self._comm['pause'] = True
 
     def volume_up(self):
-        self._volume += 10
-        if self._volume > 100: self._volume = 100
+        self._volume += .1
+        if self._volume > 1.0: self._volume = 1.0
         self._comm['volume'] = True
 
     def volume_down(self):
-        self._volume -= 10
-        if self._volume < 0: self._volume = 0
+        self._volume -= .1
+        if self._volume < 0.0: self._volume = 0.0
         self._comm['volume'] = True
+
+    def set_volume(self, value: float) -> None:
+        self._volume = value
+        if self._volume < 0.0: self._volume = 0.0
+        if self._volume > 1.0: self._volume = 1.0
+        self._comm['volume'] = True
+
+    def get_volume(self) -> float:
+        return self._volume
+
+    def seek(self, position: int):
+        self._seek_position = position
+        self._comm['seek'] = True
 
     def current_track(self):
         return self._current_file
@@ -386,9 +408,10 @@ class server:
                 if espeak is not None:
                     espeak.synth("hello %s" % _listener.user_name)
 
-                return  {'type': 'ok',
+                return  {'type':           'ok',
                          'notifications':  '9875',
                          'server_version': SERVER_VERSION,
+                         'volume':         str(self._player.get_volume()),
                          'current_track': (
                              ':'.join(self._player.current_track())
                              if self._player.current_track() is not None
@@ -414,18 +437,23 @@ class server:
                 return {'type': 'ok'}
 
             elif _command == 'skip':
-                log.info('got "skip" request')
                 self._player.skip()
                 return {'type': 'ok'}
 
             elif _command == 'volup':
-                log.info('got "volup" request')
                 self._player.volume_up()
                 return {'type': 'ok'}
 
             elif _command == 'voldown':
-                log.info('got "voldown" request')
                 self._player.volume_down()
+                return {'type': 'ok'}
+
+            elif _command == 'set_volume':
+                self._player.set_volume(float(request['value']))
+                return {'type': 'ok'}
+
+            elif _command == 'seek':
+                self._player.seek(int(request['position']))
                 return {'type': 'ok'}
 
             elif _command == 'add':
